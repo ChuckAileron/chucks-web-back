@@ -35,6 +35,98 @@ async function main() {
   }
 
   console.log(`Seeded ${seeds.length} tasks`);
+
+  const games = await prisma.collection.upsert({
+    where: { name: 'Videojuegos' },
+    update: {},
+    create: {
+      name: 'Videojuegos',
+      description: 'Mi biblioteca personal de juegos.',
+      type: 'generic',
+      position: 0,
+      columns: {
+        create: [
+          { name: 'plataforma', label: 'Plataforma', type: 'string', required: false, position: 0 },
+          { name: 'anio', label: 'Año', type: 'number', required: false, position: 1 },
+          { name: 'completado', label: 'Completado', type: 'boolean', required: false, position: 2 },
+        ],
+      },
+    },
+  });
+
+  const movies = await prisma.collection.upsert({
+    where: { name: 'Películas' },
+    update: {},
+    create: {
+      name: 'Películas',
+      description: 'Películas favoritas y por ver.',
+      type: 'generic',
+      position: 1,
+      columns: {
+        create: [
+          { name: 'estreno', label: 'Estreno', type: 'date', required: false, position: 0 },
+          { name: 'direccion', label: 'Dirección', type: 'string', required: false, position: 1 },
+        ],
+      },
+    },
+  });
+
+  const gameItems = [
+    {
+      name: 'Chrono Trigger',
+      values: { plataforma: 'SNES', anio: 1995, completado: true },
+      tags: ['jrpg', 'clásico'],
+    },
+    {
+      name: 'Hollow Knight',
+      values: { plataforma: 'PC', anio: 2017, completado: false },
+      tags: ['metroidvania', 'indie'],
+    },
+    {
+      name: 'The Legend of Zelda: Breath of the Wild',
+      values: { plataforma: 'Switch', anio: 2017, completado: true },
+      tags: ['aventura'],
+    },
+  ];
+
+  for (const item of gameItems) {
+    const exists = await prisma.collectionItem.findFirst({
+      where: { collectionId: games.id, name: item.name },
+    });
+    if (!exists) {
+      await prisma.collectionItem.create({
+        data: { collectionId: games.id, ...item },
+      });
+    }
+  }
+
+  const movieItems = [
+    {
+      name: 'Blade Runner 2049',
+      values: { estreno: '2017-10-06', direccion: 'Denis Villeneuve' },
+      tags: ['ciencia ficción'],
+    },
+    {
+      name: 'Spider-Man: Into the Spider-Verse',
+      values: { estreno: '2018-12-14', direccion: 'Bob Persichetti' },
+      tags: ['animación', 'superhéroes'],
+    },
+  ];
+
+  for (const item of movieItems) {
+    const exists = await prisma.collectionItem.findFirst({
+      where: { collectionId: movies.id, name: item.name },
+    });
+    if (!exists) {
+      await prisma.collectionItem.create({
+        data: { collectionId: movies.id, ...item },
+      });
+    }
+  }
+
+  console.log(
+    `Seeded collections: ${games.name} (${gameItems.length} items), ${movies.name} (${movieItems.length} items)`,
+  );
 }
 
 main()

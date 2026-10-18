@@ -16,3 +16,43 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Collection {
+  id          Int                @id @default(autoincrement())
+  name        String             @unique
+  description String             @default("")
+  type        String             @default("generic")
+  position    Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  columns     CollectionColumn[]
+  items       CollectionItem[]
+}
+
+model CollectionColumn {
+  id           Int                @id @default(autoincrement())
+  collectionId Int
+  collection   Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name         String
+  label        String
+  type         String             @default("string")
+  required     Boolean            @default(false)
+  position     Int                @default(0)
+
+  @@unique([collectionId, name])
+  @@index([collectionId])
+}
+
+model CollectionItem {
+  id           Int        @id @default(autoincrement())
+  collectionId Int
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name         String
+  values       Json       @default("{}")
+  imageUrl     String?
+  tags         String[]   @default([])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([collectionId])
+}
