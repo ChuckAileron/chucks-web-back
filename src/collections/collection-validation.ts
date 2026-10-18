@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { toText } from '../common/text.js';
 
 export const COLUMN_TYPES = [
   'string',
@@ -22,15 +23,6 @@ const TYPE_SET = new Set<string>(COLUMN_TYPES);
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-
-const toText = (value: unknown): string => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  return JSON.stringify(value);
-};
 
 export const validUrl = (value: unknown): value is string => {
   if (typeof value !== 'string') return false;

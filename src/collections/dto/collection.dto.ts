@@ -7,6 +7,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -86,4 +87,9 @@ export class ReorderCollectionsDto {
   @ArrayMaxSize(500)
   @IsInt({ each: true })
   ids: number[];
+}
+
+export class ImportCollectionDto {
+  @IsObject()
+  payload: Record<string, unknown>;
 }

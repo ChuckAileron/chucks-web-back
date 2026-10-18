@@ -56,3 +56,29 @@ model CollectionItem {
 
   @@index([collectionId])
 }
+
+model WishlistItem {
+  id           Int            @id @default(autoincrement())
+  name         String
+  manufacturer String         @default("")
+  year         Int?
+  imageUrl     String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  prices       WishlistPrice[]
+}
+
+model WishlistPrice {
+  id         Int           @id @default(autoincrement())
+  wishlistId Int
+  wishlist   WishlistItem  @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  store      String
+  url        String
+  price      Float?
+  currency   String?
+  checkedAt  DateTime?
+  error      String?
+
+  @@unique([wishlistId, url])
+  @@index([wishlistId])
+}

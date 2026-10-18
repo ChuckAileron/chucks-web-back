@@ -127,6 +127,43 @@ async function main() {
   console.log(
     `Seeded collections: ${games.name} (${gameItems.length} items), ${movies.name} (${movieItems.length} items)`,
   );
+
+  const wishlistItems = [
+    {
+      name: 'Super Metroid',
+      manufacturer: 'Nintendo',
+      year: 1994,
+      prices: [
+        { store: 'eBay', url: 'https://www.ebay.com/sch/i.html?_nkw=super+metroid' },
+      ],
+    },
+    {
+      name: 'Consola Analogue Pocket',
+      manufacturer: 'Analogue',
+      year: 2021,
+      prices: [
+        { store: 'Mercari', url: 'https://www.mercari.com/search/?keyword=analogue+pocket' },
+      ],
+    },
+  ];
+
+  for (const item of wishlistItems) {
+    const exists = await prisma.wishlistItem.findFirst({
+      where: { name: item.name },
+    });
+    if (!exists) {
+      await prisma.wishlistItem.create({
+        data: {
+          name: item.name,
+          manufacturer: item.manufacturer,
+          year: item.year,
+          prices: { create: item.prices },
+        },
+      });
+    }
+  }
+
+  console.log(`Seeded wishlist: ${wishlistItems.length} items`);
 }
 
 main()

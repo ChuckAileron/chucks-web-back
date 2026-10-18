@@ -13,6 +13,7 @@ import {
 import { CollectionsService } from './collections.service.js';
 import {
   CreateCollectionDto,
+  ImportCollectionDto,
   ReorderCollectionsDto,
   UpdateCollectionDto,
 } from './dto/collection.dto.js';
@@ -29,6 +30,16 @@ export class CollectionsController {
   @Put('reorder')
   reorder(@Body() dto: ReorderCollectionsDto) {
     return this.collectionsService.reorder(dto.ids);
+  }
+
+  @Post('import')
+  importCollection(@Body() dto: ImportCollectionDto) {
+    return this.collectionsService.importCollection(dto.payload);
+  }
+
+  @Get(':id/export')
+  exportCollection(@Param('id', ParseIntPipe) id: number) {
+    return this.collectionsService.exportCollection(id);
   }
 
   @Get(':id')
