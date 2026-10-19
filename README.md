@@ -1,124 +1,179 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# CHUCK's Web — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+![NestJS](https://img.shields.io/badge/NestJS-12-E0234E?logo=nestjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white)
+![Postgres](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql&logoColor=white)
+![Vitest](https://img.shields.io/badge/testing-Vitest-6E9F18?logo=vitest&logoColor=white)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+API real de **CHUCK's Web**: backend NestJS que persiste la aplicación en **PostgreSQL 16** vía **Prisma 7**. Implementa la lógica de negocio (colecciones flexibles, wishlist con seguimiento de precios vía scraping, lista de compras con extracción de links, wiki, cuentas/movimientos, calendario, peso, "hijitos", LaunchBox, búsqueda de imágenes) y sirve de destino al [BFF](../chucks-web-bff).
 
-## Description
+> **Arquitectura:** [`chucks-web-frontend`](../chucks-web-frontend) (`:5177`) → [`chucks-web-bff`](../chucks-web-bff) (`:3000`) → **este repo** (`:3001` + PostgreSQL)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Funcionalidades
 
-## Project setup
+- **Tareas** — CRUD simple
+- **Colecciones personalizadas** — estructura de columnas definida por el usuario (nombre/label/tipo/requerido/posición), items con `values` JSON, tags, ordenación, import/export
+- **Wishlist** — items de deseos + histórico de `precios` por tienda (url única), refresco masivo/individual
+- **Lista de compras (Shopping)** — `ShopContext` + `ShopItem`, extracción de links desde texto, scraping de producto (precio/moneda/condición/imagen), limpieza de inactivos
+- **Wiki** — páginas con categoría, padre/hijos, banners por categoría, pinned, stats
+- **LaunchBox** — importación/matching de CSV, obtención de metadatos (portada, fecha, dev/publisher) vía scraping de LaunchBox GamesDB. Procesos masivos en memoria (jobs) con polling
+- **Búsqueda de imágenes** — multi-motor (Google, Bing, DuckDuckGo, Wikimedia, Openverse), paginado (máx. 10 páginas)
+- **Hijitos** — tracks (Izumi, Pepita...), tareas/subtareas, prioridades, banners configurables
+- **Cuentas** — cuentas con `columns` JSON + `AccountRegister` (`values` JSON), totales mensuales, años registrados, reordenación
+- **Calendario** — eventos (all-day + horario), colores, refresco de festivos por año
+- **Peso** — objetivo (`target`) + historial de `WeightEntry` (fecha única)
 
-```bash
-$ npm install
-```
+## Stack
 
-## Compile and run the project
+| Área | Tecnología |
+|---|---|
+| Framework | NestJS 12 (ESM, `"type": "module"`) |
+| BD | PostgreSQL 16 + Prisma 7 (`@prisma/client`, `@prisma/adapter-pg`, `pg`) |
+| Validación | `class-validator` + `class-transformer` + `@nestjs/mapped-types` (DTOs parciales) |
+| Scraping | `cheerio` + `puppeteer` (solo páginas Buyee con renderizado JS) |
+| HTTP | cliente propio en `src/common/http-page.ts` (con protecciones SSRF) |
+| Tests | **Vitest** + Supertest (no Jest) |
+| Lint/Format | Oxlint (`--type-aware`) + Prettier |
+| Tooling | Prisma CLI, `tsx` (seed), `docker compose` (Postgres local)
 
-```bash
-# development
-$ npm run start
+## Requisitos
 
-# watch mode
-$ npm run start:dev
+- Node.js 20+
+- Docker / Docker Desktop (para PostgreSQL local) o PostgreSQL 16 disponible
+- Al menos 200–500 MB libres (Puppeteer descarga Chromium si no está cacheado)
 
-# production mode
-$ npm run start:prod
-```
+## Puesta en marcha
 
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+1. Instalar dependencias
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm install  # tras instalar, ejecuta "prisma generate" (postinstall)
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
+2. Levantar base de datos (Postgres 16)
 
 ```bash
-$ npm install @nestjs/observe
+npm run db:up  # docker compose up -d
 ```
 
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
+Datos por defecto: `postgres:postgres@localhost:5432/chucks_web`. Ver `docker-compose.yml`.
 
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+3. Configurar variables de entorno
 
-## Resources
+```bash
+cp .env.example .env
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+Edita `.env`:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/chucks_web?schema=public
+PORT=3001
+# OPCIONAL: directorio perfil Chrome para Puppeteer (evita cookies/login conflictos)
+# SHOP_CHROME_PROFILE=C:/Users/TECH/AppData/Local/Google/Chrome/User Data/chucks-web-buyee-profile
+```
 
-## Support
+4. Aplicar migraciones y seed
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+npm run db:migrate  # crea/aplica migraciones en dev
+npm run db:seed     # upsert de 2 tareas de ejemplo
+```
 
-## Stay in touch
+5. Levantar en modo desarrollo
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+npm run start:dev
+```
 
-## License
+Backend en **http://localhost:3001** — health: `GET http://localhost:3001/health` → `{ "status": "ok", "service": "chucks-web-backend" }`.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Variables de entorno
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `DATABASE_URL` | — | Conexión PostgreSQL (usado por Prisma + PrismaPg) |
+| `PORT` | `3001` | Puerto HTTP — `src/main.ts` |
+| `SHOP_CHROME_PROFILE` | opcional | `userDataDir` de Puppeteer para `buyee-renderer.service.ts`. Si no se define, usa `os.tmpdir()` |
+
+## Scripts
+
+| Script | Descripción |
+|---|---|
+| `npm run start:dev` | Nest con watch |
+| `npm run start:debug` | Debug |
+| `npm run start` / `start:prod` | Arranque / producción (`node dist/main`) |
+| `npm run build` | Build |
+| `npm run lint` | Oxlint type-aware sobre `src/` y `test/` |
+| `npm run format` | Prettier |
+| `npm test` / `test:watch` / `test:cov` | Vitest unitarios |
+| `npm run test:e2e` | E2E con `vitest.config.e2e.ts` |
+| `npm run postinstall` | `prisma generate` (autoejecutado tras `npm install`) |
+| `npm run db:up` | `docker compose up -d` (Postgres) |
+| `npm run db:down` | `docker compose down` |
+| `npm run db:migrate` | `prisma migrate dev` |
+| `npm run db:deploy` | `prisma migrate deploy` |
+| `npm run db:seed` | `prisma db seed` (`tsx prisma/seed.ts`) |
+| `npm run db:studio` | `prisma studio` |
+
+## Endpoints
+
+~75 endpoints sin prefijo global, todos debajo de `/`.
+
+| Módulo | Rutas |
+|---|---|
+| **App** | `GET /health` |
+| **tasks** | `GET/POST /tasks`, `GET/PATCH/DELETE /tasks/:id` |
+| **collections** | `GET/POST /collections`, `GET/PATCH/DELETE /collections/:id`, `PUT /collections/reorder`, `POST /collections/import`, `GET /collections/:id/export`, `GET/POST /collections/:id/items`, `PATCH/DELETE /collections/items/:itemId` |
+| **wishlist** | `GET/POST /wishlist`, `POST /wishlist/refresh`, `POST /wishlist/:id/prices`, `POST /wishlist/prices/:priceId/refresh`, `DELETE /wishlist/prices/:priceId`, `PATCH/DELETE /wishlist/:id` |
+| **wiki** | `GET/POST /wiki/pages`, `GET/PATCH/DELETE /wiki/pages/:id`, `GET /wiki/categories`, `POST /wiki/categories/banner`, `GET /wiki/stats` |
+| **shopping** | `GET/POST /shopping/contexts`, `DELETE /shopping/contexts/:id`, `GET /shopping/contexts/:id/items`, `POST /shopping/contexts/:id/links`, `POST /shopping/contexts/:id/refresh`, `DELETE /shopping/contexts/:id/inactive` |
+| **launchbox** | `POST /launchbox/single`, `/apply-one`, `/csv/parse`, `/match-rows`, `/bulk`, `/apply-bulk`, `/apply-results-csv`, `GET /launchbox/bulk/:jobId`, `/bulk/:jobId/results`, `POST /launchbox/bulk/:jobId/cancel` |
+| **images** | `POST /images/search` |
+| **hijitos** | `GET /hijitos`, `GET/PUT /hijitos/banner`, `PATCH /hijitos/tracks/:slug`, `POST /hijitos/tasks`, `PATCH/DELETE /hijitos/tasks/:id`, `POST /hijitos/tasks/:id/subtasks`, `PATCH/DELETE /hijitos/subtasks/:id` |
+| **accounts** | `GET/POST /accounts`, `PUT /accounts/reorder`, `GET/PATCH/DELETE /accounts/:id`, `GET /accounts/:id/registers`, `GET /accounts/:id/years`, `GET /accounts/:id/monthly`, `POST /accounts/registers`, `PATCH/DELETE /accounts/registers/:id` |
+| **calendar** | `GET /calendar/colors`, `GET /calendar/events`, `POST /calendar/events`, `PATCH/DELETE /calendar/events/:id`, `POST /calendar/holidays/:year/refresh` |
+| **weight** | `GET /weight`, `PUT /weight/target`, `POST /weight/entries`, `DELETE /weight/entries/:date` |
+
+## Modelo de datos (Prisma)
+
+Entidad resumen — ver `prisma/schema.prisma` para los tipos completos.
+
+| Modelo | Notas |
+|---|---|
+| `Task` | Tarea básica (title/project/due/completed) |
+| `Collection`/`CollectionColumn`/`CollectionItem` | Colecciones flexibles. `CollectionItem.values` es `Json` |
+| `WishlistItem`/`WishlistPrice` | Deseos + seguimiento de precios (único `[wishlistId,url]`) |
+| `WikiPage`/`WikiCategoryBanner` | Árbol auto-referenciado (`parentId → children`), slug único |
+| `ShopContext`/`ShopItem` | Contextos de compra + items con scraping (precio, usdPrice, currency, store, active, checkedAt) |
+| `HijitoTrack`/`HijitoTask`/`HijitoSubtask`/`HijitoSetting` | Seguimiento diario con prioridades y subtareas |
+| `Account`/`AccountRegister` | `Account.columns` y `AccountRegister.values` JSON |
+| `CalendarEvent` | Fechas/horas + `images[]` + `isHoliday` |
+| `WeightSetting`/`WeightEntry` | Objetivo + entradas por fecha única |
+
+## Arquitectura interna
+
+- **Módulos NestJS** por dominio. `PrismaModule` `@Global` expone `PrismaService` (extiende `PrismaClient` con `PrismaPg`, `onModuleDestroy`).
+- **Controladores** delgados: validación de params con `ParseIntPipe`, cuerpos tipados como `Record<string, unknown>` en varios casos — validación/normalización detallada vive en los **servicios** (fechas ISO `YYYY-MM-DD`, horas `HH:MM`, prioridades válidas, rangos de peso, etc.).
+- **`src/common/` (integraciones sin estado):** `http-page.ts` (HTTP + SSRF guard + compresión), `price-scraper.ts` (JSON-LD + meta, fallbacks), `image-search.ts` (multi-motor), `launchbox-metadata.ts` (scraping LaunchBox GamesDB, CSV, rate-limit 500 ms), `buyee-renderer.service.ts` (Puppeteer headless, timeout 45 s), `text.ts` (normalización).
+- **Jobs en memoria**: `LaunchboxService` mantiene `Map` con estados `running|done|cancelled` (no persiste entre reinicios).
+- **Validación global:** `ValidationPipe({ whitelist: true, transform: true })`.
+- **Mensajes de error:** mayormente en **español** (`BadRequestException`, `NotFoundException`).
+- **Tests:** unitarios (`app.controller.spec.ts`, `tasks.service.spec.ts`, `launchbox-metadata.spec.ts`, `collection-validation.spec.ts`) + e2e (`test/app.e2e-spec.ts`).
+
+## Migraciones
+
+6 migraciones en `prisma/migrations/` (init, collections, wishlist, wiki, shopping_wishlist, hijitos_accounts_calendar_weight). Genera cliente en `src/generated/prisma` (ignorado por git). `prisma.config.ts` define `seed: tsx prisma/seed.ts`.
+
+## CORS
+
+Solo permite el frontend dev: `http://localhost:5177`, `http://127.0.0.1:5177` (definido en `src/main.ts`).
+
+## Notas
+
+- **Sin autenticación.** Pensado para uso en red local (único cliente frontend). Si se expone públicamente, añadir auth (JWT) es recomendable.
+- Puppeteer usa Chromium. En CI o entornos sin GUI puede requerir flags extra; aquí se usa headless.
+- El código es un **port a TypeScript** desde una versión Electron: hay referencias a `electron/priceScraper.cjs`, `electron/imageSearch.cjs`, `electron/launchboxMetadata.cjs`, `electron/urlResolver.cjs`.
+- `src/generated/` está en `.gitignore` (cliente Prisma generado).
+- Licencia: `UNLICENSED` (propietario).

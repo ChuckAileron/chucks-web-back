@@ -82,3 +82,160 @@ model WishlistPrice {
   @@unique([wishlistId, url])
   @@index([wishlistId])
 }
+
+model WikiPage {
+  id            Int        @id @default(autoincrement())
+  title         String
+  slug          String     @unique
+  category      String     @default("General")
+  icon          String     @default("📄")
+  summary       String     @default("")
+  content       String     @default("")
+  tag           String     @default("")
+  pinned        Boolean    @default(false)
+  author        String     @default("")
+  banner        String     @default("")
+  bannerPosition String    @default("center")
+  parentId      Int?
+  parent        WikiPage?  @relation("WikiHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children      WikiPage[] @relation("WikiHierarchy")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([category])
+  @@index([parentId])
+  @@index([updatedAt])
+}
+
+model WikiCategoryBanner {
+  category String @id
+  banner   String @default("")
+}
+
+model ShopContext {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  items     ShopItem[]
+}
+
+model ShopItem {
+  id        Int        @id @default(autoincrement())
+  contextId Int
+  context   ShopContext @relation(fields: [contextId], references: [id], onDelete: Cascade)
+  url       String
+  name      String
+  page      String
+  imageUrl  String?
+  price     Float?
+  usdPrice  Float?
+  currency  String?
+  condition String?
+  store     String?
+  active    Boolean    @default(true)
+  error     String?
+  checkedAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([contextId, url])
+  @@index([contextId])
+}
+
+model HijitoTrack {
+  slug      String       @id
+  name      String
+  banner    String       @default("")
+  bannerX   Int          @default(50)
+  bannerY   Int          @default(50)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  tasks     HijitoTask[]
+}
+
+model HijitoTask {
+  id          Int             @id @default(autoincrement())
+  trackSlug   String
+  track       HijitoTrack     @relation(fields: [trackSlug], references: [slug], onDelete: Cascade)
+  description String
+  dueDate     String          @default("")
+  priority    String          @default("medio")
+  done        Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  subtasks    HijitoSubtask[]
+
+  @@index([trackSlug])
+}
+
+model HijitoSubtask {
+  id          Int        @id @default(autoincrement())
+  taskId      Int
+  task        HijitoTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  description String
+  done        Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+
+  @@index([taskId])
+}
+
+model HijitoSetting {
+  key   String @id
+  value String
+}
+
+model Account {
+  id          Int               @id @default(autoincrement())
+  name        String            @unique
+  description String            @default("")
+  columns     Json              @default("[]")
+  position    Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  registers   AccountRegister[]
+}
+
+model AccountRegister {
+  id        Int      @id @default(autoincrement())
+  accountId Int
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name      String
+  date      String
+  amount    Float
+  values    Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, date])
+}
+
+model CalendarEvent {
+  id          Int      @id @default(autoincrement())
+  title       String
+  label       String   @default("")
+  color       String   @default("teal")
+  startDate   String
+  endDate     String
+  allDay      Boolean  @default(true)
+  startTime   String?
+  endTime     String?
+  description String   @default("")
+  images      String[] @default([])
+  isHoliday   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([startDate, endDate])
+}
+
+model WeightSetting {
+  key   String @id
+  value String
+}
+
+model WeightEntry {
+  date      String   @id
+  weight    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -7,6 +7,12 @@ import { LaunchboxModule } from './launchbox/launchbox.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { WishlistModule } from './wishlist/wishlist.module.js';
+import { WikiModule } from './wiki/wiki.module.js';
+import { ShoppingModule } from './shopping/shopping.module.js';
+import { HijitosModule } from './hijitos/hijitos.module.js';
+import { AccountsModule } from './accounts/accounts.module.js';
+import { CalendarModule } from './calendar/calendar.module.js';
+import { WeightModule } from './weight/weight.module.js';
 
 @Module({
   imports: [
@@ -14,6 +20,12 @@ import { WishlistModule } from './wishlist/wishlist.module.js';
     TasksModule,
     CollectionsModule,
     WishlistModule,
+    WikiModule,
+    ShoppingModule,
+    HijitosModule,
+    AccountsModule,
+    CalendarModule,
+    WeightModule,
     LaunchboxModule,
     ImagesModule,
   ],
