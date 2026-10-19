@@ -30,7 +30,7 @@ API real de **CHUCK's Web**: backend NestJS que persiste la aplicación en **Pos
 |---|---|
 | Framework | NestJS 12 (ESM, `"type": "module"`) |
 | BD | PostgreSQL 16 + Prisma 7 (`@prisma/client`, `@prisma/adapter-pg`, `pg`) |
-| Validación | `class-validator` + `class-transformer` + `@nestjs/mapped-types` (DTOs parciales) |
+| Validación | `class-validator` + `class-transformer` + `@nestjs/mapped-types` (DTOs parciales) + `@nestjs/config` (variables de entorno) |
 | Scraping | `cheerio` + `puppeteer` (solo páginas Buyee con renderizado JS) |
 | HTTP | cliente propio en `src/common/http-page.ts` (con protecciones SSRF) |
 | Tests | **Vitest** + Supertest (no Jest) |
@@ -68,8 +68,20 @@ cp .env.example .env
 Edita `.env`:
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/chucks_web?schema=public
 PORT=3001
+NODE_ENV=development
+
+# PostgreSQL por partes (tienen prioridad sobre DATABASE_URL)
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=chucks_web
+DB_SSL=disable
+
+# Alternativa: URL completa (opcional si DB_* está definido)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/chucks_web?schema=public
+
 # OPCIONAL: directorio perfil Chrome para Puppeteer (evita cookies/login conflictos)
 # SHOP_CHROME_PROFILE=C:/Users/TECH/AppData/Local/Google/Chrome/User Data/chucks-web-buyee-profile
 ```
@@ -93,15 +105,24 @@ Backend en **http://localhost:3001** — health: `GET http://localhost:3001/heal
 
 | Variable | Default | Descripción |
 |---|---|---|
-| `DATABASE_URL` | — | Conexión PostgreSQL (usado por Prisma + PrismaPg) |
+| `DB_HOST` | — | Host de PostgreSQL. Obligatoria salvo que venga en `DATABASE_URL` |
+| `DB_PORT` | `5432` | Puerto de PostgreSQL |
+| `DB_USER` | — | Usuario. Obligatorio salvo que venga en `DATABASE_URL` |
+| `DB_PASSWORD` | — | Contraseña. Obligatoria si `NODE_ENV=production` |
+| `DB_NAME` | — | Base de datos. Obligatoria salvo que venga en `DATABASE_URL` |
+| `DB_SSL` | `disable` | TLS con el servidor PG: `disable` \| `require` \| `verify-full` |
+| `DATABASE_URL` | — | URL completa. Opcional si `DB_*` está definido (las partes sueltas tienen prioridad) |
 | `PORT` | `3001` | Puerto HTTP — `src/main.ts` |
+| `NODE_ENV` | — | En `production` se rechazan host localhost y contraseña vacía |
 | `SHOP_CHROME_PROFILE` | opcional | `userDataDir` de Puppeteer para `buyee-renderer.service.ts`. Si no se define, usa `os.tmpdir()` |
+
+La validación (formato, rangos y config mínima de BD) vive en `src/config/env.ts` y se aplica al arrancar con `@nestjs/config` (`ConfigModule` en `src/app.module.ts`). Prisma (`prisma.config.ts`, `PrismaService`, `seed.ts`) resuelve la conexión con las mismas variables.
 
 ## Scripts
 
 | Script | Descripción |
 |---|---|
-| `npm run start:dev` | Nest con watch |
+| `npm run dev` / `npm run start:dev` | Nest con watch |
 | `npm run start:debug` | Debug |
 | `npm run start` / `start:prod` | Arranque / producción (`node dist/main`) |
 | `npm run build` | Build |

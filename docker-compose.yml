@@ -4,15 +4,19 @@ services:
     container_name: chucks-web-backend-db
     restart: unless-stopped
     ports:
-      - '5432:5432'
+      - '${DB_PORT:-5432}:5432'
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: chucks_web
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-chucks_web}
     volumes:
       - chucks_web_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d chucks_web']
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-chucks_web}',
+        ]
       interval: 5s
       timeout: 5s
       retries: 10

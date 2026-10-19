@@ -1,9 +1,13 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { resolveDatabaseConfig, toPoolConfig } from '../src/config/env.js';
 
-const adapter = new PrismaPg({
-  connectionString: process.env['DATABASE_URL'],
+const db = resolveDatabaseConfig(process.env);
+const adapter = new PrismaPg(new pg.Pool(toPoolConfig(db)), {
+  schema: db.schema,
+  disposeExternalPool: true,
 });
 const prisma = new PrismaClient({ adapter });
 

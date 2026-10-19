@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 
@@ -14,7 +15,8 @@ async function bootstrap() {
     new ValidationPipe({ whitelist: true, transform: true }),
   );
 
-  const port = Number(process.env['PORT'] ?? 3001);
+  const config = app.get(ConfigService);
+  const port = Number(config.get('PORT') ?? 3001);
   await app.listen(port);
   console.log(`Backend running on http://localhost:${port}`);
 }

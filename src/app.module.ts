@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { validateEnv } from './config/env.js';
 import { CollectionsModule } from './collections/collections.module.js';
 import { ImagesModule } from './images/images.module.js';
 import { LaunchboxModule } from './launchbox/launchbox.module.js';
@@ -16,6 +18,7 @@ import { WeightModule } from './weight/weight.module.js';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     PrismaModule,
     TasksModule,
     CollectionsModule,
