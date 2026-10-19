@@ -124,7 +124,7 @@ La validación (formato, rangos y config mínima de BD) vive en `src/config/env.
 |---|---|
 | `npm run dev` / `npm run start:dev` | Nest con watch |
 | `npm run start:debug` | Debug |
-| `npm run start` / `start:prod` | Arranque / producción (`node dist/main`) |
+| `npm run start` / `start:prod` | Arranque / producción (`prisma migrate deploy && node dist/main`) |
 | `npm run build` | Build |
 | `npm run lint` | Oxlint type-aware sobre `src/` y `test/` |
 | `npm run format` | Prettier |

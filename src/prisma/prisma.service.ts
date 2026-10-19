@@ -18,7 +18,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
       DB_NAME: config.get('DB_NAME'),
       DB_SSL: config.get('DB_SSL'),
       NODE_ENV: config.get('NODE_ENV'),
-    });
+    }, { strict: true });
 
     const pool = new pg.Pool(toPoolConfig(db));
     super({

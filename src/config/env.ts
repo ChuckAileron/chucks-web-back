@@ -146,71 +146,110 @@ export function buildDatabaseUrl(
   return `postgresql://${credentials}@${config.host}:${config.port}/${encodeURIComponent(config.database)}${query ? `?${query}` : ''}`;
 }
 
+export interface ResolveDatabaseOptions {
+  /**
+   * `true` (arranque de la aplicación): falla si falta configuración, si hay
+   * valores inválidos o si producción apunta a localhost.
+   * `false` (por defecto, herramientas CLI como `prisma generate` en el build):
+   * completa los huecos con valores por defecto en lugar de lanzar errores.
+   */
+  strict?: boolean;
+}
+
 /**
  * Resuelve la configuración de PostgreSQL priorizando las variables sueltas
  * (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL`) sobre
  * `DATABASE_URL`. Si la URL viene completa, sus partes ausentes se reutilizan.
- * Lanza un error claro si falta configuración o si producción apunta a localhost.
  */
-export function resolveDatabaseConfig(env: DatabaseEnv): DatabaseConfig {
+export function resolveDatabaseConfig(
+  env: DatabaseEnv,
+  options: ResolveDatabaseOptions = {},
+): DatabaseConfig {
+  const strict = options.strict ?? false;
   const rawUrl = asString(env.DATABASE_URL);
   let parsed: URL | undefined;
   if (rawUrl !== undefined) {
+    let candidate: URL | undefined;
+    let urlError: string | undefined;
     try {
-      parsed = new URL(rawUrl);
+      candidate = new URL(rawUrl);
     } catch {
-      throw new Error('DATABASE_URL no es una URL PostgreSQL válida.');
+      urlError = 'DATABASE_URL no es una URL PostgreSQL válida.';
     }
-    if (parsed.protocol !== 'postgresql:' && parsed.protocol !== 'postgres:') {
-      throw new Error('DATABASE_URL debe usar el esquema postgresql://');
+    if (
+      candidate &&
+      candidate.protocol !== 'postgresql:' &&
+      candidate.protocol !== 'postgres:'
+    ) {
+      urlError = 'DATABASE_URL debe usar el esquema postgresql://';
+      candidate = undefined;
     }
+    if (urlError !== undefined) {
+      if (strict) {
+        throw new Error(urlError);
+      }
+      candidate = undefined;
+    }
+    parsed = candidate;
   }
 
-  const host = asString(env.DB_HOST) ?? parsed?.hostname;
-  const database =
+  let host = asString(env.DB_HOST) ?? parsed?.hostname;
+  let database =
     asString(env.DB_NAME) ??
     (parsed?.pathname.startsWith('/')
       ? decodeURIComponent(parsed.pathname.slice(1))
       : undefined);
-  const user =
+  let user =
     asString(env.DB_USER) ??
     (parsed?.username ? decodeURIComponent(parsed.username) : undefined);
   const password =
     asString(env.DB_PASSWORD) ??
     (parsed?.password ? decodeURIComponent(parsed.password) : undefined);
   const rawPort = asString(env.DB_PORT) ?? parsed?.port;
-  const port = rawPort === undefined ? 5432 : Number(rawPort);
+  let port = rawPort === undefined ? 5432 : Number(rawPort);
   const schema = parsed?.searchParams.get('schema') ?? undefined;
-  const ssl =
+  let ssl =
     (asString(env.DB_SSL) as SslMode | undefined) ??
     sslFromSslmode(parsed?.searchParams.get('sslmode')) ??
     'disable';
 
-  if (!host || !user || !database) {
-    const missing: string[] = [];
-    if (!host) missing.push('DB_HOST');
-    if (!user) missing.push('DB_USER');
-    if (!database) missing.push('DB_NAME');
-    throw new Error(
-      `Falta configuración de PostgreSQL: ${missing.join(', ')} (o define DATABASE_URL completa).`,
-    );
-  }
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`DB_PORT inválido: ${rawPort ?? ''}`);
-  }
-  if (!SSL_MODES.includes(ssl)) {
-    throw new Error(`DB_SSL inválido: ${String(env.DB_SSL)} (usa disable | require | verify-full)`);
-  }
-
-  const isProduction = asString(env.NODE_ENV)?.toLowerCase() === 'production';
-  if (isProduction) {
-    if (LOOPBACK_HOSTS.has(host.toLowerCase())) {
+  if (strict) {
+    if (!host || !user || !database) {
+      const missing: string[] = [];
+      if (!host) missing.push('DB_HOST');
+      if (!user) missing.push('DB_USER');
+      if (!database) missing.push('DB_NAME');
       throw new Error(
-        'En producción DB_HOST no puede ser localhost/127.0.0.1/::1: define la instancia real de PostgreSQL.',
+        `Falta configuración de PostgreSQL: ${missing.join(', ')} (o define DATABASE_URL completa).`,
       );
     }
-    if (!password) {
-      throw new Error('En producción DB_PASSWORD es obligatorio.');
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error(`DB_PORT inválido: ${rawPort ?? ''}`);
+    }
+    if (!SSL_MODES.includes(ssl)) {
+      throw new Error(`DB_SSL inválido: ${String(env.DB_SSL)} (usa disable | require | verify-full)`);
+    }
+
+    const isProduction = asString(env.NODE_ENV)?.toLowerCase() === 'production';
+    if (isProduction) {
+      if (LOOPBACK_HOSTS.has(host.toLowerCase())) {
+        throw new Error(
+          'En producción DB_HOST no puede ser localhost/127.0.0.1/::1: define la instancia real de PostgreSQL.',
+        );
+      }
+      if (!password) {
+        throw new Error('En producción DB_PASSWORD es obligatorio.');
+      }
+    }
+  } else {
+    if (!host) host = 'localhost';
+    if (!user) user = 'postgres';
+    if (!database) database = 'postgres';
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      port = 5432;
+    }
+    if (!SSL_MODES.includes(ssl)) {
+      ssl = 'disable';
     }
   }
 
@@ -264,6 +303,6 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       .join('; ');
     throw new Error(`Variables de entorno inválidas — ${details}`);
   }
-  resolveDatabaseConfig(variables);
+  resolveDatabaseConfig(variables, { strict: true });
   return Object.assign(new EnvironmentVariables(), config, variables);
 }

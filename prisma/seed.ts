@@ -4,7 +4,7 @@ import pg from 'pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { resolveDatabaseConfig, toPoolConfig } from '../src/config/env.js';
 
-const db = resolveDatabaseConfig(process.env);
+const db = resolveDatabaseConfig(process.env, { strict: true });
 const adapter = new PrismaPg(new pg.Pool(toPoolConfig(db)), {
   schema: db.schema,
   disposeExternalPool: true,
