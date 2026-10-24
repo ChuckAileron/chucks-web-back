@@ -146,8 +146,8 @@ model HijitoTrack {
   slug      String       @id
   name      String
   banner    String       @default("")
-  bannerX   Int          @default(50)
-  bannerY   Int          @default(50)
+  bannerX   Int          @default(0)
+  bannerY   Int          @default(0)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   tasks     HijitoTask[]

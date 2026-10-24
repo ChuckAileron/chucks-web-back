@@ -8,7 +8,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const clampPosition = (value: unknown, fallback: number) => {
   if (value === undefined || value === null || value === '') return fallback;
   const number = Number(value);
-  return Number.isFinite(number) ? Math.min(100, Math.max(0, Math.round(number))) : fallback;
+  return Number.isFinite(number) ? Math.min(500, Math.max(-500, Math.round(number))) : fallback;
 };
 
 @Injectable()
