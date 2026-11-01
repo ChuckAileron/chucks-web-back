@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   ParseIntPipe,
   Post,
   Query,
@@ -23,6 +24,9 @@ export class ShoppingController {
 
   @Delete('contexts/:id')
   deleteContext(@Param('id', ParseIntPipe) id: number) { return this.shopping.deleteContext(id); }
+
+  @Patch('contexts/:id')
+  updateContext(@Param('id', ParseIntPipe) id: number, @Body() body: CreateShopContextDto) { return this.shopping.updateContext(id, body.name); }
 
   @Get('contexts/:id/items')
   listItems(@Param('id', ParseIntPipe) id: number, @Query('sort') sort?: string) {

@@ -10,6 +10,7 @@ function setup() {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
     delete: vi.fn(),
   };
   const sitePage = {
@@ -34,6 +35,18 @@ describe('SitesService', () => {
     await service.createContext('  Diseño  ');
 
     expect(siteContext.create).toHaveBeenCalledWith({ data: { name: 'Diseño' } });
+  });
+
+  it('renames a context without changing its saved pages', async () => {
+    const { service, siteContext, sitePage } = setup();
+    siteContext.findUnique.mockResolvedValue({ id: 3, name: 'Diseño' } as never);
+    siteContext.findFirst.mockResolvedValue(null);
+    siteContext.update.mockResolvedValue({ id: 3, name: 'Inspiración' } as never);
+
+    await service.updateContext(3, '  Inspiración  ');
+
+    expect(siteContext.update).toHaveBeenCalledWith({ where: { id: 3 }, data: { name: 'Inspiración' } });
+    expect(sitePage.update).not.toHaveBeenCalled();
   });
 
   it('rejects saving a duplicate URL without recapturing it', async () => {

@@ -161,12 +161,12 @@ Rutas de autenticación: `POST /auth/register` crea el único usuario permitido 
 |---|---|
 | **App** | `GET /health` |
 | **auth** | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm` |
-| **sites** | `GET/POST /sites/contexts`, `DELETE /sites/contexts/:id`, `GET/POST /sites/contexts/:id/pages`, `POST /sites/pages/:id/capture`, `DELETE /sites/pages/:id` |
+| **sites** | `GET/POST /sites/contexts`, `PATCH/DELETE /sites/contexts/:id`, `GET/POST /sites/contexts/:id/pages`, `POST /sites/pages/:id/capture`, `DELETE /sites/pages/:id` |
 | **tasks** | `GET/POST /tasks`, `GET/PATCH/DELETE /tasks/:id` |
 | **collections** | `GET/POST /collections`, `GET/PATCH/DELETE /collections/:id`, `PUT /collections/reorder`, `POST /collections/import`, `GET /collections/:id/export`, `GET/POST /collections/:id/items`, `PATCH/DELETE /collections/items/:itemId` |
 | **wishlist** | `GET/POST /wishlist`, `POST /wishlist/refresh`, `POST /wishlist/:id/prices`, `POST /wishlist/prices/:priceId/refresh`, `DELETE /wishlist/prices/:priceId`, `PATCH/DELETE /wishlist/:id` |
 | **wiki** | `GET/POST /wiki/pages`, `GET/PATCH/DELETE /wiki/pages/:id`, `GET /wiki/categories`, `POST /wiki/categories/banner`, `GET /wiki/stats` |
-| **shopping** | `GET/POST /shopping/contexts`, `DELETE /shopping/contexts/:id`, `GET /shopping/contexts/:id/items`, `POST /shopping/contexts/:id/links`, `POST /shopping/contexts/:id/refresh`, `DELETE /shopping/contexts/:id/inactive` |
+| **shopping** | `GET/POST /shopping/contexts`, `PATCH/DELETE /shopping/contexts/:id`, `GET /shopping/contexts/:id/items`, `POST /shopping/contexts/:id/links`, `POST /shopping/contexts/:id/refresh`, `DELETE /shopping/contexts/:id/inactive` |
 | **launchbox** | `POST /launchbox/single`, `/apply-one`, `/csv/parse`, `/match-rows`, `/bulk`, `/apply-bulk`, `/apply-results-csv`, `GET /launchbox/bulk/:jobId`, `/bulk/:jobId/results`, `POST /launchbox/bulk/:jobId/cancel` |
 | **images** | `POST /images/search` |
 | **hijitos** | `GET /hijitos`, `GET/PUT /hijitos/banner`, `PATCH /hijitos/tracks/:slug`, `POST /hijitos/tasks`, `PATCH/DELETE /hijitos/tasks/:id`, `POST /hijitos/tasks/:id/subtasks`, `PATCH/DELETE /hijitos/subtasks/:id` |

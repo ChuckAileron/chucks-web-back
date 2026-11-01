@@ -47,6 +47,17 @@ export class SitesService {
     return { deleted: true };
   }
 
+  async updateContext(id: number, name: string) {
+    const current = await this.requireContext(id);
+    const normalized = name.trim();
+    if (!normalized) throw new BadRequestException('El nombre del contexto es obligatorio.');
+    const duplicate = await this.prisma.siteContext.findFirst({
+      where: { id: { not: id }, name: { equals: normalized, mode: 'insensitive' } },
+    });
+    if (duplicate) throw new ConflictException(`Ya existe un contexto llamado “${normalized}”.`);
+    return this.prisma.siteContext.update({ where: { id: current.id }, data: { name: normalized } });
+  }
+
   async listPages(contextId: number) {
     await this.requireContext(contextId);
     return this.prisma.sitePage.findMany({

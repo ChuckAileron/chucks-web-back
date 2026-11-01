@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { CreateSiteContextDto, CreateSitePageDto } from './sites.dto.js';
 import { SitesService } from './sites.service.js';
 
@@ -14,6 +14,11 @@ export class SitesController {
 
   @Delete('contexts/:id')
   deleteContext(@Param('id', ParseIntPipe) id: number) { return this.sites.deleteContext(id); }
+
+  @Patch('contexts/:id')
+  updateContext(@Param('id', ParseIntPipe) id: number, @Body() body: CreateSiteContextDto) {
+    return this.sites.updateContext(id, body.name);
+  }
 
   @Get('contexts/:id/pages')
   listPages(@Param('id', ParseIntPipe) id: number) { return this.sites.listPages(id); }

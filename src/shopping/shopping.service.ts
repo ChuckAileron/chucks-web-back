@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -72,6 +73,17 @@ export class ShoppingService {
     await this.requireContext(id);
     await this.prisma.shopContext.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  async updateContext(id: number, name: string) {
+    const current = await this.requireContext(id);
+    const normalized = name.trim();
+    if (!normalized) throw new BadRequestException('El nombre del contexto es obligatorio.');
+    const duplicate = await this.prisma.shopContext.findFirst({
+      where: { id: { not: id }, name: { equals: normalized, mode: 'insensitive' } },
+    });
+    if (duplicate) throw new ConflictException(`Ya existe una pestaña llamada “${normalized}”.`);
+    return this.prisma.shopContext.update({ where: { id: current.id }, data: { name: normalized } });
   }
 
   async listItems(contextId: number, sort: ShopSort = 'date-desc') {
