@@ -6,5 +6,6 @@ import { BuyeeRendererService } from '../common/buyee-renderer.service.js';
 @Module({
   controllers: [ShoppingController],
   providers: [ShoppingService, BuyeeRendererService],
+  exports: [BuyeeRendererService],
 })
 export class ShoppingModule {}

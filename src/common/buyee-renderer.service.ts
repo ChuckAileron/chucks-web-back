@@ -85,6 +85,41 @@ export class BuyeeRendererService implements OnModuleDestroy {
     }
   }
 
+  async captureScreenshot(value: string) {
+    const safeUrl = await validatePublicUrl(value);
+    const browser = await this.browser();
+    const context = await browser.createBrowserContext();
+    const page: Page = await context.newPage();
+    page.setDefaultNavigationTimeout(25_000);
+    await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
+    await page.setUserAgent(USER_AGENT);
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const protocol = (() => { try { return new URL(request.url()).protocol } catch { return '' } })();
+      if (['data:', 'blob:', 'about:'].includes(protocol)) {
+        void request.continue();
+        return;
+      }
+      if (protocol !== 'http:' && protocol !== 'https:') {
+        void request.abort('blockedbyclient');
+        return;
+      }
+      void this.validateRequest(request.url())
+        .then(() => request.continue())
+        .catch(() => request.abort('blockedbyclient'));
+    });
+
+    try {
+      await page.goto(safeUrl.href, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+      await page.waitForNetworkIdle({ idleTime: 500, timeout: 4_000 }).catch(() => undefined);
+      const title = await page.title().catch(() => '');
+      const screenshot = await page.screenshot({ type: 'jpeg', quality: 68, encoding: 'base64' });
+      return { title: title.trim().slice(0, 300), finalUrl: page.url(), screenshot: `data:image/jpeg;base64,${screenshot}` };
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  }
+
   async onModuleDestroy() {
     const browser = this.browserPromise ? await this.browserPromise.catch(() => null) : null;
     await browser?.close().catch(() => undefined);

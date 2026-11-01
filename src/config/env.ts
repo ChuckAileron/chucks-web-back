@@ -28,6 +28,15 @@ const optionalString = ({ value }: TransformFnParams): unknown =>
     : String(value);
 
 export class EnvironmentVariables {
+  @IsString()
+  @Matches(/^.{32,}$/, { message: 'AUTH_SECRET debe tener al menos 32 caracteres.' })
+  AUTH_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^.{32,}$/, { message: 'INTERNAL_API_KEY debe tener al menos 32 caracteres.' })
+  INTERNAL_API_KEY?: string;
+
   @Transform(optionalNumber)
   @IsOptional()
   @IsInt()

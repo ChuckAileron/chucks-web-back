@@ -16,6 +16,7 @@ API real de **CHUCK's Web**: backend NestJS que persiste la aplicación en **Pos
 - **Colecciones personalizadas** — estructura de columnas definida por el usuario (nombre/label/tipo/requerido/posición), items con `values` JSON, tags, ordenación, import/export
 - **Wishlist** — items de deseos + histórico de `precios` por tienda (url única), refresco masivo/individual
 - **Lista de compras (Shopping)** — `ShopContext` + `ShopItem`, extracción de links desde texto, scraping de producto (precio/moneda/condición/imagen), limpieza de inactivos
+- **Sitios de interés** — contextos y páginas guardadas con captura de pantalla JPEG
 - **Wiki** — páginas con categoría, padre/hijos, banners por categoría, pinned, stats
 - **LaunchBox** — importación/matching de CSV, obtención de metadatos (portada, fecha, dev/publisher) vía scraping de LaunchBox GamesDB. Procesos masivos en memoria (jobs) con polling
 - **Búsqueda de imágenes** — multi-motor (Google, Bing, DuckDuckGo, Wikimedia, Openverse), paginado (máx. 10 páginas)
@@ -82,6 +83,11 @@ DB_SSL=disable
 # Alternativa: URL completa (opcional si DB_* está definido)
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/chucks_web?schema=public
 
+# Recuperación de contraseña por correo (Resend; requiere dominio verificado)
+RESEND_API_KEY=re_xxxxxxxxx
+PASSWORD_RESET_FROM=CHUCK's Web <no-reply@tu-dominio.com>
+FRONTEND_URL=http://localhost:5177
+
 # OPCIONAL: directorio perfil Chrome para Puppeteer (evita cookies/login conflictos)
 # SHOP_CHROME_PROFILE=C:/Users/TECH/AppData/Local/Google/Chrome/User Data/chucks-web-buyee-profile
 ```
@@ -114,7 +120,14 @@ Backend en **http://localhost:3001** — health: `GET http://localhost:3001/heal
 | `DATABASE_URL` | — | URL completa. Opcional si `DB_*` está definido (las partes sueltas tienen prioridad) |
 | `PORT` | `3001` | Puerto HTTP — `src/main.ts` |
 | `NODE_ENV` | — | En `production` se rechazan host localhost y contraseña vacía |
+| `AUTH_SECRET` | — | Obligatorio, mínimo 32 caracteres aleatorios; firma los tokens de sesión |
+| `INTERNAL_API_KEY` | — | Clave privada compartida con el BFF para las llamadas internas; usa el mismo valor en ambos servicios |
+| `RESEND_API_KEY` | — | API key de Resend para enviar los correos de recuperación |
+| `PASSWORD_RESET_FROM` | — | Remitente verificado en Resend (p. ej. `CHUCK's Web <no-reply@tu-dominio.com>`) |
+| `FRONTEND_URL` | `http://localhost:5177` | URL base del frontend a la que apunta el enlace de recuperación |
 | `SHOP_CHROME_PROFILE` | opcional | `userDataDir` de Puppeteer para `buyee-renderer.service.ts`. Si no se define, usa `os.tmpdir()` |
+
+La recuperación usa enlaces aleatorios de un solo uso que vencen en una hora. Configura las tres variables de Resend/frontend, ejecuta `npm run db:deploy` para aplicar la migración y vuelve a desplegar el backend y el BFF.
 
 La validación (formato, rangos y config mínima de BD) vive en `src/config/env.ts` y se aplica al arrancar con `@nestjs/config` (`ConfigModule` en `src/app.module.ts`). Prisma (`prisma.config.ts`, `PrismaService`, `seed.ts`) resuelve la conexión con las mismas variables.
 
@@ -140,11 +153,15 @@ La validación (formato, rangos y config mínima de BD) vive en `src/config/env.
 
 ## Endpoints
 
-~75 endpoints sin prefijo global, todos debajo de `/`.
+Rutas de autenticación: `POST /auth/register` crea el único usuario permitido (correo y contraseña de al menos 12 caracteres); `POST /auth/login` valida credenciales y devuelve un token Bearer de 7 días; `GET /auth/me` valida la sesión actual; `POST /auth/password-reset/request` envía un enlace de recuperación y `POST /auth/password-reset/confirm` consume el token para actualizar la contraseña. El primer registro debe hacerse de forma privada. El resto de rutas requiere `Authorization: Bearer <accessToken>`; `GET /health` permanece público.
+
+~82 endpoints sin prefijo global, todos debajo de `/`.
 
 | Módulo | Rutas |
 |---|---|
 | **App** | `GET /health` |
+| **auth** | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm` |
+| **sites** | `GET/POST /sites/contexts`, `DELETE /sites/contexts/:id`, `GET/POST /sites/contexts/:id/pages`, `POST /sites/pages/:id/capture`, `DELETE /sites/pages/:id` |
 | **tasks** | `GET/POST /tasks`, `GET/PATCH/DELETE /tasks/:id` |
 | **collections** | `GET/POST /collections`, `GET/PATCH/DELETE /collections/:id`, `PUT /collections/reorder`, `POST /collections/import`, `GET /collections/:id/export`, `GET/POST /collections/:id/items`, `PATCH/DELETE /collections/items/:itemId` |
 | **wishlist** | `GET/POST /wishlist`, `POST /wishlist/refresh`, `POST /wishlist/:id/prices`, `POST /wishlist/prices/:priceId/refresh`, `DELETE /wishlist/prices/:priceId`, `PATCH/DELETE /wishlist/:id` |
@@ -164,10 +181,12 @@ Entidad resumen — ver `prisma/schema.prisma` para los tipos completos.
 | Modelo | Notas |
 |---|---|
 | `Task` | Tarea básica (title/project/due/completed) |
+| `AuthUser` | Única cuenta permitida, contraseña almacenada con scrypt |
 | `Collection`/`CollectionColumn`/`CollectionItem` | Colecciones flexibles. `CollectionItem.values` es `Json` |
 | `WishlistItem`/`WishlistPrice` | Deseos + seguimiento de precios (único `[wishlistId,url]`) |
 | `WikiPage`/`WikiCategoryBanner` | Árbol auto-referenciado (`parentId → children`), slug único |
 | `ShopContext`/`ShopItem` | Contextos de compra + items con scraping (precio, usdPrice, currency, store, active, checkedAt) |
+| `SiteContext`/`SitePage` | Sitios guardados por contexto con capturas de pantalla web |
 | `HijitoTrack`/`HijitoTask`/`HijitoSubtask`/`HijitoSetting` | Seguimiento diario con prioridades y subtareas |
 | `Account`/`AccountRegister` | `Account.columns` y `AccountRegister.values` JSON |
 | `CalendarEvent` | Fechas/horas + `images[]` + `isHoliday` |
@@ -185,7 +204,7 @@ Entidad resumen — ver `prisma/schema.prisma` para los tipos completos.
 
 ## Migraciones
 
-6 migraciones en `prisma/migrations/` (init, collections, wishlist, wiki, shopping_wishlist, hijitos_accounts_calendar_weight). Genera cliente en `src/generated/prisma` (ignorado por git). `prisma.config.ts` define `seed: tsx prisma/seed.ts`.
+10 migraciones en `prisma/migrations/` (incluye autenticación de usuario único, recuperación de contraseña y sitios de interés). Genera cliente en `src/generated/prisma` (ignorado por git). `prisma.config.ts` define `seed: tsx prisma/seed.ts`.
 
 ## CORS
 
@@ -193,7 +212,7 @@ Solo permite el frontend dev: `http://localhost:5177`, `http://127.0.0.1:5177` (
 
 ## Notas
 
-- **Sin autenticación.** Pensado para uso en red local (único cliente frontend). Si se expone públicamente, añadir auth (JWT) es recomendable.
+- **Autenticación de usuario único:** `AuthGuard` valida tokens Bearer para todas las rutas privadas. El BFF usa `INTERNAL_API_KEY` para el salto interno después de validar el token de usuario.
 - Puppeteer usa Chromium. En CI o entornos sin GUI puede requerir flags extra; aquí se usa headless.
 - El código es un **port a TypeScript** desde una versión Electron: hay referencias a `electron/priceScraper.cjs`, `electron/imageSearch.cjs`, `electron/launchboxMetadata.cjs`, `electron/urlResolver.cjs`.
 - `src/generated/` está en `.gitignore` (cliente Prisma generado).
