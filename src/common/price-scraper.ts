@@ -34,6 +34,17 @@ const NO_DECIMAL_CURRENCIES = new Set([
   'VND',
 ]);
 
+const ALIEXPRESS_TITLE_STOP_WORDS = new Set([
+  'de', 'del', 'la', 'el', 'los', 'las', 'con', 'para', 'por', 'the', 'and',
+  'for', 'with', 'from', 'new', 'hot', 'sale', 'free', 'shipping', 'store',
+  'official', 'original', 'popular', 'fashion', 'men', 'mens', 'women', 'womens',
+  'unisex', 'cotton', 'short', 'sleeve', 'shirt', 'shirts', 'tshirt', 'tee',
+  'consola', 'juegos', 'juego', 'portatil', 'pantalla', 'bateria', 'gaming',
+  'handheld', 'screen', 'dual', 'cpu', 'android', 'stick', 'battery', 'mah',
+  'qualcomm', 'snapdragon', 'hall', 'graphics', 'graphic', 'band', 'vintage',
+  'printed', 'print', 'crew', 'neck', 'gift', 'gifts', 'clothing',
+]);
+
 export interface ProductResult {
   price: number | null;
   currency: string | null;
@@ -43,6 +54,18 @@ export interface ProductResult {
   usdPrice: number | null;
   store: string | null;
   error: string | null;
+  priceSource?: 'scraped' | 'search';
+}
+
+export interface AliExpressSearchCard {
+  productId?: string | null;
+  redirectedId?: string | null;
+  title?: string | null;
+  imageUrl?: string | null;
+  price?: number | null;
+  formattedPrice?: string | null;
+  currency?: string | null;
+  originalItemId?: string | null;
 }
 
 export const numberFromPrice = (value: unknown): number | null => {
@@ -360,6 +383,74 @@ export const extractAliExpressProductId = (value: string): string | null => {
   } catch {
     return null;
   }
+};
+
+const aliExpressTitleTerms = (value: string): string[] =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .match(/[a-z0-9]+/g)
+    ?.filter((term) => term.length > 2 && !ALIEXPRESS_TITLE_STOP_WORDS.has(term)) ?? [];
+
+export const aliExpressSearchQuery = (title: string): string =>
+  [...new Set(aliExpressTitleTerms(title))].slice(0, 7).join(' ') || title.trim();
+
+const aliExpressImageIdentity = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  try {
+    const path = new URL(value.startsWith('//') ? `https:${value}` : value).pathname;
+    const key = path.match(/\/kf\/([^/]+)/i)?.[1];
+    return key
+      ?.replace(/_\d+x\d+.*$/i, '')
+      .replace(/\.(?:jpe?g|png|webp|avif).*$/i, '')
+      .toLowerCase() ?? null;
+  } catch {
+    return null;
+  }
+};
+
+export const parseAliExpressSearchCards = (
+  cards: AliExpressSearchCard[],
+  target: { title: string; productId: string | null; imageUrl: string | null },
+): ProductResult | null => {
+  const targetTerms = new Set(aliExpressTitleTerms(target.title));
+  const targetImage = aliExpressImageIdentity(target.imageUrl);
+  const candidates = cards.flatMap((card, index) => {
+    const currency = card.currency?.trim().toUpperCase() || currencyFromText(card.formattedPrice);
+    const price =
+      (typeof card.price === 'number' && Number.isFinite(card.price) ? card.price : null) ??
+      (currency && card.formattedPrice
+        ? priceNumberFromText(card.formattedPrice, currency) ?? numberFromPrice(card.formattedPrice)
+        : numberFromPrice(card.formattedPrice));
+    if (price === null || price <= 0) return [];
+
+    const cardIds = [card.productId, card.redirectedId, card.originalItemId].filter(Boolean);
+    const exactId = Boolean(target.productId && cardIds.includes(target.productId));
+    const imageIdentity = aliExpressImageIdentity(card.imageUrl);
+    const exactImage = Boolean(targetImage && imageIdentity && targetImage === imageIdentity);
+    const cardTerms = new Set(aliExpressTitleTerms(card.title ?? ''));
+    const overlap = [...targetTerms].filter((term) => cardTerms.has(term)).length;
+    const coverage = overlap / Math.max(1, Math.min(targetTerms.size, cardTerms.size));
+    const score = exactId ? 4 : exactImage ? 3 : coverage + overlap / Math.max(targetTerms.size, 1) * 0.1;
+
+    return [{ card, price, currency, score, index }];
+  });
+  candidates.sort((left, right) => right.score - left.score || left.index - right.index);
+  const best = candidates[0];
+  if (!best) return null;
+
+  return {
+    price: best.price,
+    currency: best.currency ?? null,
+    imageUrl: null,
+    title: null,
+    condition: null,
+    usdPrice: null,
+    store: 'AliExpress',
+    error: null,
+    priceSource: 'search',
+  };
 };
 
 // Buyee reúne varias tiendas japonesas bajo su propio dominio; la tienda de

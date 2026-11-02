@@ -3,6 +3,7 @@ import { launch, type Browser, type Page, type HTTPResponse } from 'puppeteer';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validatePublicUrl } from './http-page.js';
+import type { AliExpressSearchCard } from './price-scraper.js';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -138,6 +139,106 @@ export class BuyeeRendererService implements OnModuleDestroy {
       return { html, finalUrl: page.url(), apiResponses };
     } finally {
       page.off('response', responseHandler);
+      await page.close().catch(() => undefined);
+    }
+  }
+
+  async searchAliExpressProducts(value: string, query: string, timeoutMs = 20_000) {
+    const targetUrl = await validatePublicUrl(value);
+    const slug = query.trim().replace(/\s+/g, '-').slice(0, 120) || 'product';
+    const searchUrl = new URL(
+      `/w/wholesale-${encodeURIComponent(slug)}.html`,
+      `https://${targetUrl.hostname}`,
+    );
+    searchUrl.searchParams.set('SearchText', query);
+    const safeUrl = await validatePublicUrl(searchUrl.href);
+    const browser = await this.browser();
+    const page: Page = await browser.newPage();
+    page.setDefaultNavigationTimeout(timeoutMs);
+    await page.setUserAgent(USER_AGENT);
+    await page.setExtraHTTPHeaders({ 'accept-language': 'es-ES,es;q=0.9,en-US,en;q=0.8' });
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      void this.validateRequest(request.url())
+        .then(() => request.continue())
+        .catch(() => request.abort('blockedbyclient'));
+    });
+
+    try {
+      try {
+        await page.goto(safeUrl.href, {
+          waitUntil: 'domcontentloaded',
+          timeout: Math.min(15_000, timeoutMs),
+        });
+      } catch {
+        // La búsqueda suele entregar sus tarjetas desde el HTML inicial.
+      }
+      const deadline = Date.now() + Math.min(5_000, timeoutMs);
+      let cards: AliExpressSearchCard[] = [];
+      while (Date.now() < deadline && cards.length === 0) {
+        cards = await page.evaluate(() => {
+          type SearchCard = Record<string, unknown>;
+          type SearchWindow = Window & {
+            _dida_config_?: {
+              _init_data_?: {
+                data?: {
+                  data?: {
+                    root?: {
+                      fields?: {
+                        mods?: { itemList?: { content?: SearchCard[] } };
+                      };
+                    };
+                  };
+                };
+              };
+            };
+          };
+          const cards = (window as SearchWindow)._dida_config_?._init_data_?.data?.data
+            ?.root?.fields?.mods?.itemList?.content ?? [];
+          return cards.map((card) => {
+            const title = card['title'] as { displayTitle?: unknown } | undefined;
+            const image = card['image'] as { imgUrl?: unknown } | undefined;
+            const prices = card['prices'] as {
+              salePrice?: {
+                minPrice?: unknown;
+                formattedPrice?: unknown;
+                currencyCode?: unknown;
+              };
+            } | undefined;
+            const sale = prices?.salePrice;
+            return {
+              productId:
+                typeof card['productId'] === 'string' || typeof card['productId'] === 'number'
+                  ? String(card['productId'])
+                  : '',
+              redirectedId:
+                typeof card['redirectedId'] === 'string' || typeof card['redirectedId'] === 'number'
+                  ? String(card['redirectedId'])
+                  : '',
+              title:
+                typeof title?.displayTitle === 'string' || typeof title?.displayTitle === 'number'
+                  ? String(title.displayTitle)
+                  : '',
+              imageUrl:
+                typeof image?.imgUrl === 'string' || typeof image?.imgUrl === 'number'
+                  ? String(image.imgUrl)
+                  : '',
+              price: typeof sale?.minPrice === 'number' ? sale.minPrice : null,
+              formattedPrice:
+                typeof sale?.formattedPrice === 'string' || typeof sale?.formattedPrice === 'number'
+                  ? String(sale.formattedPrice)
+                  : '',
+              currency:
+                typeof sale?.currencyCode === 'string' || typeof sale?.currencyCode === 'number'
+                  ? String(sale.currencyCode)
+                  : '',
+            };
+          });
+        });
+        if (!cards.length) await delay(250);
+      }
+      return cards;
+    } finally {
       await page.close().catch(() => undefined);
     }
   }

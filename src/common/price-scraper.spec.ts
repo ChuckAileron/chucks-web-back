@@ -3,6 +3,8 @@ import {
   extractAliExpressProductId,
   isAliExpressUrl,
   parseAliExpressApiResponse,
+  parseAliExpressSearchCards,
+  aliExpressSearchQuery,
   parseProductHtml,
 } from './price-scraper.js';
 
@@ -91,5 +93,33 @@ describe('AliExpress price scraper', () => {
       title,
       error: null,
     });
+  });
+
+  it('builds a concise AliExpress query and prefers matching images in search results', () => {
+    const targetImage = 'https://ae-pic-a1.aliexpress-media.com/kf/Sb1e173aa16514b60a05eb15f263369c7z.png';
+    const title = 'Consola de Juegos Portátil AYN Thor con Pantalla OLED Dual, CPU Qualcomm Snapdragon';
+    expect(aliExpressSearchQuery(title)).toBe('ayn thor oled');
+
+    const result = parseAliExpressSearchCards(
+      [
+        {
+          productId: '1005010000000001',
+          title: 'AYN game handheld console accessory',
+          imageUrl: 'https://ae-pic.example/kf/different-image.jpg',
+          price: 25000,
+          currency: 'CLP',
+        },
+        {
+          productId: '1005010000000002',
+          title: 'Consola AYN Thor OLED portátil',
+          imageUrl: '//ae-pic-a1.aliexpress-media.com/kf/Sb1e173aa16514b60a05eb15f263369c7z.png_220x220.jpg',
+          price: 519900,
+          currency: 'CLP',
+        },
+      ],
+      { title, productId: '1005009801028580', imageUrl: targetImage },
+    );
+
+    expect(result).toMatchObject({ price: 519900, currency: 'CLP', priceSource: 'search' });
   });
 });

@@ -130,24 +130,27 @@ model ShopContext {
 }
 
 model ShopItem {
-  id        Int        @id @default(autoincrement())
-  contextId Int
-  context   ShopContext @relation(fields: [contextId], references: [id], onDelete: Cascade)
-  url       String
-  name      String
-  page      String
-  imageUrl  String?
-  price     Float?
-  usdPrice  Float?
-  currency  String?
-  condition String?
-  store     String?
-  tags      String[]   @default([])
-  active    Boolean    @default(true)
-  error     String?
-  checkedAt DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id             Int         @id @default(autoincrement())
+  contextId      Int
+  context        ShopContext @relation(fields: [contextId], references: [id], onDelete: Cascade)
+  url            String
+  name           String
+  page           String
+  imageUrl       String?
+  price          Float?
+  usdPrice       Float?
+  currency       String?
+  priceSource    String?
+  manualPrice    Float?
+  manualCurrency String?
+  condition      String?
+  store          String?
+  tags           String[]    @default([])
+  active         Boolean     @default(true)
+  error          String?
+  checkedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@unique([contextId, url])
   @@index([contextId])

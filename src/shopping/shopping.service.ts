@@ -6,15 +6,18 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  aliExpressSearchQuery,
+  extractAliExpressProductId,
   isAliExpressUrl,
   isBuyeeUrl,
   parseAliExpressApiResponse,
+  parseAliExpressSearchCards,
   parseProductHtml,
   scrapeProduct,
 } from '../common/price-scraper.js';
 import type { ProductResult } from '../common/price-scraper.js';
 import { BuyeeRendererService } from '../common/buyee-renderer.service.js';
-import type { SHOP_SORTS } from './dto/shopping.dto.js';
+import type { UpdateShopItemDto, SHOP_SORTS } from './dto/shopping.dto.js';
 
 type ShopSort = (typeof SHOP_SORTS)[number];
 
@@ -73,7 +76,7 @@ export class ShoppingService {
         apiResults.at(-1);
       if (!apiResult) return htmlResult;
       const price = apiResult.price ?? htmlResult.price;
-      return {
+      const combined: ProductResult = {
         ...apiResult,
         price,
         currency: apiResult.currency ?? htmlResult.currency,
@@ -84,6 +87,29 @@ export class ShoppingService {
         store: apiResult.store ?? htmlResult.store,
         error: price !== null ? null : apiResult.error ?? htmlResult.error,
       };
+      if (combined.price !== null || !htmlResult.title) return combined;
+
+      try {
+        const cards = await this.buyeeRenderer.searchAliExpressProducts(
+          url,
+          aliExpressSearchQuery(htmlResult.title),
+        );
+        const approximate = parseAliExpressSearchCards(cards, {
+          title: htmlResult.title,
+          productId: extractAliExpressProductId(url),
+          imageUrl: htmlResult.imageUrl,
+        });
+        if (!approximate) return combined;
+        return {
+          ...combined,
+          price: approximate.price,
+          currency: approximate.currency,
+          priceSource: 'search',
+          error: null,
+        };
+      } catch {
+        return combined;
+      }
     }
     if (!isBuyeeUrl(url)) return scrapeProduct(url);
     const rendered = await this.buyeeRenderer.renderProductHtml(url);
@@ -146,8 +172,8 @@ export class ShoppingService {
     return items.sort((left, right) => {
       if (sort === 'name-asc') return compareText(left.name, right.name) || left.id - right.id;
       if (sort === 'name-desc') return compareText(right.name, left.name) || right.id - left.id;
-      if (sort === 'price-asc') return byPrice(left.price, right.price, 1) || left.id - right.id;
-      if (sort === 'price-desc') return byPrice(left.price, right.price, -1) || right.id - left.id;
+      if (sort === 'price-asc') return byPrice(left.manualPrice ?? left.price, right.manualPrice ?? right.price, 1) || left.id - right.id;
+      if (sort === 'price-desc') return byPrice(left.manualPrice ?? left.price, right.manualPrice ?? right.price, -1) || right.id - left.id;
       const date = byDate(left.createdAt, right.createdAt);
       return sort === 'date-asc' ? date || left.id - right.id : -date || right.id - left.id;
     });
@@ -161,10 +187,42 @@ export class ShoppingService {
   }
 
   async updateItemTags(contextId: number, itemId: number, tags: string[]) {
+    return this.updateItem(contextId, itemId, { tags });
+  }
+
+  async updateItem(contextId: number, itemId: number, updates: UpdateShopItemDto) {
     await this.requireContext(contextId);
+    const data: {
+      tags?: string[];
+      manualPrice?: number | null;
+      manualCurrency?: string | null;
+    } = {};
+    if (updates.tags !== undefined) data.tags = normalizeTags(updates.tags);
+
+    const hasManualPrice = updates.manualPrice !== undefined;
+    const hasManualCurrency = updates.manualCurrency !== undefined;
+    if (hasManualPrice) {
+      if (updates.manualPrice === null) {
+        data.manualPrice = null;
+        data.manualCurrency = null;
+      } else {
+        const currency = updates.manualCurrency?.trim().toUpperCase();
+        if (updates.manualPrice === undefined || !currency) {
+          throw new BadRequestException('Indica el precio y la moneda para guardar un precio manual.');
+        }
+        data.manualPrice = updates.manualPrice;
+        data.manualCurrency = currency;
+      }
+    } else if (hasManualCurrency) {
+      throw new BadRequestException('El precio y la moneda manual deben actualizarse juntos.');
+    }
+    if (!Object.keys(data).length) {
+      throw new BadRequestException('No se recibieron cambios para el artículo.');
+    }
+
     const result = await this.prisma.shopItem.updateMany({
       where: { id: itemId, contextId },
-      data: { tags: normalizeTags(tags) },
+      data,
     });
     if (!result.count) throw new NotFoundException('El art��culo no existe en este contexto.');
     return this.prisma.shopItem.findUniqueOrThrow({ where: { id: itemId } });
@@ -207,6 +265,7 @@ export class ShoppingService {
         ...(result.price != null && Number.isFinite(result.price) ? { price: result.price } : {}),
         ...(result.usdPrice != null && Number.isFinite(result.usdPrice) ? { usdPrice: result.usdPrice } : {}),
         ...(result.currency ? { currency: result.currency } : {}),
+        ...(result.priceSource ? { priceSource: result.priceSource } : result.price != null ? { priceSource: 'scraped' } : {}),
         ...(result.condition ? { condition: result.condition } : {}),
         ...(result.store ? { store: result.store } : {}),
         ...(result.imageUrl ? { imageUrl: result.imageUrl } : {}),

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { BuyeeRendererService } from '../common/buyee-renderer.service.js';
 import type { ProductResult } from '../common/price-scraper.js';
@@ -42,6 +42,42 @@ describe('ShoppingService.scrapeShopProduct', () => {
       error: null,
     });
   });
+
+  it('uses AliExpress search results as a clearly marked approximate fallback', async () => {
+    const url = 'https://es.aliexpress.com/item/1005009801028580.html';
+    const renderer = {
+      renderAliExpressProductHtml: vi.fn().mockResolvedValue({
+        html: `<html><head><meta property="og:title" content="AYN Thor OLED Handheld"></head><body>
+          <button class="ship-to--text">CLP</button>
+          <meta property="og:image" content="https://ae-pic-a1.aliexpress-media.com/kf/Sb1e173aa16514b60a05eb15f263369c7z.png">
+        </body></html>`,
+        finalUrl: url,
+        apiResponses: ['mtopjsonp1({"ret":["FAIL_SYS_USER_VALIDATE"],"data":{}})'],
+      }),
+      searchAliExpressProducts: vi.fn().mockResolvedValue([
+        {
+          productId: '1005010000000002',
+          title: 'AYN Thor OLED portable gaming console',
+          imageUrl: '//ae-pic-a1.aliexpress-media.com/kf/Sb1e173aa16514b60a05eb15f263369c7z.png_220x220.jpg',
+          price: 519900,
+          currency: 'CLP',
+        },
+      ]),
+    };
+    const { service } = setup(renderer);
+    const scrapeShopProduct = Reflect.get(service, 'scrapeShopProduct') as (
+      this: ShoppingService,
+      target: string,
+    ) => Promise<ProductResult>;
+
+    await expect(scrapeShopProduct.call(service, url)).resolves.toMatchObject({
+      price: 519900,
+      currency: 'CLP',
+      priceSource: 'search',
+      error: null,
+    });
+    expect(renderer.searchAliExpressProducts).toHaveBeenCalledWith(url, 'ayn thor oled');
+  });
 });
 
 describe('ShoppingService.deleteItem', () => {
@@ -84,5 +120,42 @@ describe('ShoppingService.updateItemTags', () => {
     shopItem.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(service.updateItemTags(5, 27, ['ofertas'])).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('ShoppingService.updateItem manual price', () => {
+  it('saves a manual price and currency for the selected context item', async () => {
+    const { service, shopContext, shopItem } = setup();
+    const updated = { id: 27, contextId: 5, manualPrice: 519900, manualCurrency: 'CLP' };
+    shopContext.findUnique.mockResolvedValue({ id: 5, name: 'Electrónica' });
+    shopItem.updateMany.mockResolvedValue({ count: 1 });
+    shopItem.findUniqueOrThrow.mockResolvedValue(updated);
+
+    await expect(service.updateItem(5, 27, { manualPrice: 519900, manualCurrency: 'clp' })).resolves.toEqual(updated);
+    expect(shopItem.updateMany).toHaveBeenCalledWith({
+      where: { id: 27, contextId: 5 },
+      data: { manualPrice: 519900, manualCurrency: 'CLP' },
+    });
+  });
+
+  it('clears both manual override fields together', async () => {
+    const { service, shopContext, shopItem } = setup();
+    shopContext.findUnique.mockResolvedValue({ id: 5, name: 'Electrónica' });
+    shopItem.updateMany.mockResolvedValue({ count: 1 });
+    shopItem.findUniqueOrThrow.mockResolvedValue({ id: 27, manualPrice: null, manualCurrency: null });
+
+    await service.updateItem(5, 27, { manualPrice: null, manualCurrency: null });
+    expect(shopItem.updateMany).toHaveBeenCalledWith({
+      where: { id: 27, contextId: 5 },
+      data: { manualPrice: null, manualCurrency: null },
+    });
+  });
+
+  it('requires a currency for a non-null manual price', async () => {
+    const { service, shopContext, shopItem } = setup();
+    shopContext.findUnique.mockResolvedValue({ id: 5, name: 'Electrónica' });
+
+    await expect(service.updateItem(5, 27, { manualPrice: 519900 })).rejects.toBeInstanceOf(BadRequestException);
+    expect(shopItem.updateMany).not.toHaveBeenCalled();
   });
 });

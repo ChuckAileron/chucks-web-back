@@ -1,4 +1,17 @@
-import { ArrayMaxSize, IsArray, IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUppercase,
+  Length,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreateShopContextDto {
   @IsString()
@@ -13,12 +26,25 @@ export class AddShopLinksDto {
   text!: string;
 }
 
-export class UpdateShopItemTagsDto {
+export class UpdateShopItemDto {
+  @IsOptional()
   @IsArray()
   @ArrayMaxSize(20)
   @IsString({ each: true })
   @MaxLength(40, { each: true })
-  tags!: string[];
+  tags?: string[];
+
+  @IsOptional()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
+  @Min(0)
+  @Max(1_000_000_000)
+  manualPrice?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  @IsUppercase()
+  manualCurrency?: string | null;
 }
 
 export const SHOP_SORTS = [
