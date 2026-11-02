@@ -244,22 +244,40 @@ model AccountRegister {
 }
 
 model CalendarEvent {
-  id          Int      @id @default(autoincrement())
-  title       String
-  label       String   @default("")
-  color       String   @default("teal")
-  startDate   String
-  endDate     String
-  allDay      Boolean  @default(true)
-  startTime   String?
-  endTime     String?
-  description String   @default("")
-  images      String[] @default([])
-  isHoliday   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  title            String
+  label            String   @default("")
+  color            String   @default("teal")
+  startDate        String
+  endDate          String
+  allDay           Boolean  @default(true)
+  startTime        String?
+  endTime          String?
+  description      String   @default("")
+  images           String[] @default([])
+  isHoliday        Boolean  @default(false)
+  source           String   @default("local")
+  googleEventId    String?
+  googleCalendarId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
+  @@unique([googleCalendarId, googleEventId])
   @@index([startDate, endDate])
+  @@index([source, googleCalendarId])
+}
+
+model GoogleCalendarConnection {
+  id           Int       @id @default(1)
+  email        String    @default("")
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scope        String    @default("")
+  calendarId   String    @default("primary")
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model WeightSetting {

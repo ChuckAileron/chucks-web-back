@@ -86,6 +86,36 @@ export class EnvironmentVariables {
     message: 'DATABASE_URL debe empezar por postgresql://',
   })
   DATABASE_URL?: string;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsString()
+  FRONTEND_URL?: string;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsString()
+  GOOGLE_CLIENT_ID?: string;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsString()
+  GOOGLE_CLIENT_SECRET?: string;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsString()
+  GOOGLE_REDIRECT_URI?: string;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsString()
+  GOOGLE_CALENDAR_ID?: string;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsString()
+  GOOGLE_CALENDAR_TIMEZONE?: string;
 }
 
 export interface DatabaseEnv {
