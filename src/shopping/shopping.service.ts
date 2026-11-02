@@ -107,6 +107,13 @@ export class ShoppingService {
     });
   }
 
+  async deleteItem(contextId: number, itemId: number) {
+    await this.requireContext(contextId);
+    const result = await this.prisma.shopItem.deleteMany({ where: { id: itemId, contextId } });
+    if (!result.count) throw new NotFoundException('El artículo no existe en este contexto.');
+    return { deleted: true };
+  }
+
   async addLinks(contextId: number, text: string) {
     await this.requireContext(contextId);
     const urls = extractShopLinks(text);

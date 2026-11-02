@@ -155,7 +155,7 @@ La validación (formato, rangos y config mínima de BD) vive en `src/config/env.
 
 Rutas de autenticación: `POST /auth/register` crea el único usuario permitido (correo y contraseña de al menos 12 caracteres); `POST /auth/login` valida credenciales y devuelve un token Bearer de 7 días; `GET /auth/me` valida la sesión actual; `POST /auth/password-reset/request` envía un enlace de recuperación y `POST /auth/password-reset/confirm` consume el token para actualizar la contraseña. El primer registro debe hacerse de forma privada. El resto de rutas requiere `Authorization: Bearer <accessToken>`; `GET /health` permanece público.
 
-~82 endpoints sin prefijo global, todos debajo de `/`.
+~83 endpoints sin prefijo global, todos debajo de `/`.
 
 | Módulo | Rutas |
 |---|---|
@@ -166,7 +166,7 @@ Rutas de autenticación: `POST /auth/register` crea el único usuario permitido 
 | **collections** | `GET/POST /collections`, `GET/PATCH/DELETE /collections/:id`, `PUT /collections/reorder`, `POST /collections/import`, `GET /collections/:id/export`, `GET/POST /collections/:id/items`, `PATCH/DELETE /collections/items/:itemId` |
 | **wishlist** | `GET/POST /wishlist`, `POST /wishlist/refresh`, `POST /wishlist/:id/prices`, `POST /wishlist/prices/:priceId/refresh`, `DELETE /wishlist/prices/:priceId`, `PATCH/DELETE /wishlist/:id` |
 | **wiki** | `GET/POST /wiki/pages`, `GET/PATCH/DELETE /wiki/pages/:id`, `GET /wiki/categories`, `POST /wiki/categories/banner`, `GET /wiki/stats` |
-| **shopping** | `GET/POST /shopping/contexts`, `PATCH/DELETE /shopping/contexts/:id`, `GET /shopping/contexts/:id/items`, `POST /shopping/contexts/:id/links`, `POST /shopping/contexts/:id/refresh`, `DELETE /shopping/contexts/:id/inactive` |
+| **shopping** | `GET/POST /shopping/contexts`, `PATCH/DELETE /shopping/contexts/:id`, `GET /shopping/contexts/:id/items`, `DELETE /shopping/contexts/:contextId/items/:itemId`, `POST /shopping/contexts/:id/links`, `POST /shopping/contexts/:id/refresh`, `DELETE /shopping/contexts/:id/inactive` |
 | **launchbox** | `POST /launchbox/single`, `/apply-one`, `/csv/parse`, `/match-rows`, `/bulk`, `/apply-bulk`, `/apply-results-csv`, `GET /launchbox/bulk/:jobId`, `/bulk/:jobId/results`, `POST /launchbox/bulk/:jobId/cancel` |
 | **images** | `POST /images/search` |
 | **hijitos** | `GET /hijitos`, `GET/PUT /hijitos/banner`, `PATCH /hijitos/tracks/:slug`, `POST /hijitos/tasks`, `PATCH/DELETE /hijitos/tasks/:id`, `POST /hijitos/tasks/:id/subtasks`, `PATCH/DELETE /hijitos/subtasks/:id` |
