@@ -58,4 +58,38 @@ describe('AliExpress price scraper', () => {
     expect(fallback.title).toBe('Consola');
     expect(fallback.imageUrl).toBe('https://images.example.com/item.png');
   });
+
+  it('reads a localized visible sale price and currency from the rendered PDP HTML', () => {
+    const title = 'Consola de Juegos Portátil AYN Thor con Pantalla OLED Dual';
+    const html = `<html><body>
+      <button aria-label="País y moneda">CLP</button>
+      <h1>${title}</h1>
+      <span class="price-default--current--example">$519.900</span>
+      <span class="price-default--discount--example">-29% dto.</span>
+      <span class="price-default--original--example">$742.714</span>
+    </body></html>`;
+
+    expect(parseProductHtml(html, productUrl)).toMatchObject({
+      price: 519900,
+      currency: 'CLP',
+      title,
+      store: 'AliExpress',
+      error: null,
+    });
+  });
+
+  it('falls back to the price text near the product heading if classes change', () => {
+    const title = 'Consola de Juegos Portátil AYN Thor con Pantalla OLED Dual';
+    const html = `<html><body>
+      <button class="ship-to--text">CLP</button><h1>${title}</h1>
+      <div>4.5 · 53 valoraciones · 292 vendido(s) · $519.900 -29% dto. $742.714</div>
+    </body></html>`;
+
+    expect(parseProductHtml(html, productUrl)).toMatchObject({
+      price: 519900,
+      currency: 'CLP',
+      title,
+      error: null,
+    });
+  });
 });

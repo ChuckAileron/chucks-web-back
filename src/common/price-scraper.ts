@@ -447,12 +447,78 @@ const extractUsdPrice = (html: string): number | null => {
   return null;
 };
 
+const extractAliExpressHtmlPrice = (
+  html: string,
+): { price: number; currency: string | null } | null => {
+  const $ = load(html);
+  const visible = $('body').clone();
+  visible.find('script, style, noscript').remove();
+  const pageText = visible.text().replace(/\s+/g, ' ').trim();
+  const currencyContext = $('[class*="ship-to"], [aria-label*="moneda" i]')
+    .toArray()
+    .map((element) => `${$(element).attr('aria-label') ?? ''} ${$(element).text()}`)
+    .join(' ');
+  const pageCurrency =
+    `${currencyContext} ${pageText}`
+      .match(/\b(USD|EUR|GBP|JPY|CAD|AUD|MXN|BRL|CLP|ARS|COP|PEN)\b/i)?.[1]
+      ?.toUpperCase() ??
+    null;
+  const selectors = [
+    '[class*="price-default--current"]',
+    '[class*="price--current"]',
+    '[class*="price-current"]',
+    '[class*="salePrice"]',
+    '[data-pl*="price"]',
+  ];
+
+  for (const selector of selectors) {
+    for (const element of $(selector).toArray()) {
+      const text = $(element).text().replace(/\s+/g, ' ').trim();
+      const amount = text.match(/(?:USD|EUR|GBP|JPY|CAD|AUD|MXN|BRL|CLP|ARS|COP|PEN)?\s*(?:US\s*)?[$€£¥]?\s*(\d[\d.,\u202f]*)/i)?.[1];
+      if (!amount) continue;
+      const currency =
+        text.match(/\b(USD|EUR|GBP|JPY|CAD|AUD|MXN|BRL|CLP|ARS|COP|PEN)\b/i)?.[1]?.toUpperCase() ??
+        pageCurrency ??
+        currencyFromText(text);
+      const price = currency
+        ? priceNumberFromText(amount, currency) ?? numberFromPrice(amount)
+        : numberFromPrice(amount);
+      if (price !== null && price > 0) return { price, currency };
+    }
+  }
+
+  // Algunas versiones del PDP cambian las clases, pero mantienen el precio
+  // de venta inmediatamente después de la información principal del producto.
+  const title = extractAliExpressTitle(html);
+  const titleIndex = title ? pageText.indexOf(title) : -1;
+  const productText =
+    titleIndex >= 0
+      ? pageText.slice(titleIndex + title!.length, titleIndex + title!.length + 1600)
+      : pageText;
+  const amount = productText.match(/(?:USD|EUR|GBP|JPY|CAD|AUD|MXN|BRL|CLP|ARS|COP|PEN)?\s*(?:US\s*)?[$€£¥]\s*(\d[\d.,\u202f]*)/i)?.[1];
+  if (!amount) return null;
+  const currency =
+    productText.match(/\b(USD|EUR|GBP|JPY|CAD|AUD|MXN|BRL|CLP|ARS|COP|PEN)\b/i)?.[1]?.toUpperCase() ??
+    pageCurrency ??
+    currencyFromText(productText);
+  const price = currency
+    ? priceNumberFromText(amount, currency) ?? numberFromPrice(amount)
+    : numberFromPrice(amount);
+  return price !== null && price > 0 ? { price, currency } : null;
+};
+
 // Analiza el HTML ya descargado de una ficha de producto. Además del precio,
 // imagen y título genéricos extrae la condición y la estimación en dólares
 // que publica Buyee.
 const cleanAliExpressTitle = (value: string | null): string | null => {
   const title = value?.replace(/\s*[-|]\s*AliExpress(?:\s+\d+)?\s*$/i, '').trim();
   return title || null;
+};
+
+const extractAliExpressTitle = (html: string): string | null => {
+  const $ = load(html);
+  const heading = $('h1').first().text().replace(/\s+/g, ' ').trim();
+  return cleanAliExpressTitle(extractProductTitle(html) ?? heading);
 };
 
 const absoluteImageUrl = (value: unknown, baseUrl: string): string | null => {
@@ -614,13 +680,16 @@ export const parseProductHtml = (
   html: string,
   baseUrl: string,
 ): ProductResult => {
-  const price = extractPrice(html);
-  if (isAliExpressUrl(baseUrl)) {
+  const aliExpress = isAliExpressUrl(baseUrl);
+  const price = aliExpress
+    ? extractAliExpressHtmlPrice(html) ?? extractPrice(html)
+    : extractPrice(html);
+  if (aliExpress) {
     return {
       price: price?.price ?? null,
       currency: price?.currency ?? null,
       imageUrl: extractProductImage(html, baseUrl),
-      title: cleanAliExpressTitle(extractProductTitle(html)),
+      title: extractAliExpressTitle(html),
       condition: null,
       usdPrice: null,
       store: 'AliExpress',
