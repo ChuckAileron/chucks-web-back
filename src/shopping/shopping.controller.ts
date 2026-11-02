@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { AddShopLinksDto, CreateShopContextDto, SHOP_SORTS } from './dto/shopping.dto.js';
+import { AddShopLinksDto, CreateShopContextDto, SHOP_SORTS, UpdateShopItemTagsDto } from './dto/shopping.dto.js';
 import { ShoppingService } from './shopping.service.js';
 
 @Controller('shopping')
@@ -39,6 +39,13 @@ export class ShoppingController {
     @Param('contextId', ParseIntPipe) contextId: number,
     @Param('itemId', ParseIntPipe) itemId: number,
   ) { return this.shopping.deleteItem(contextId, itemId); }
+
+  @Patch('contexts/:contextId/items/:itemId')
+  updateItemTags(
+    @Param('contextId', ParseIntPipe) contextId: number,
+    @Param('itemId', ParseIntPipe) itemId: number,
+    @Body() body: UpdateShopItemTagsDto,
+  ) { return this.shopping.updateItemTags(contextId, itemId, body.tags); }
 
   @Post('contexts/:id/links')
   addLinks(@Param('id', ParseIntPipe) id: number, @Body() body: AddShopLinksDto) {

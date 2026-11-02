@@ -31,6 +31,18 @@ function extractShopLinks(text: string) {
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 
+function normalizeTags(tags: string[]) {
+  const seen = new Set<string>();
+  return tags.flatMap((raw) => {
+    const tag = raw.trim().replace(/^#+/, '').trim();
+    if (!tag) return [];
+    const key = tag.toLocaleLowerCase();
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [tag];
+  }).slice(0, 20);
+}
+
 @Injectable()
 export class ShoppingService {
   constructor(
@@ -110,8 +122,18 @@ export class ShoppingService {
   async deleteItem(contextId: number, itemId: number) {
     await this.requireContext(contextId);
     const result = await this.prisma.shopItem.deleteMany({ where: { id: itemId, contextId } });
-    if (!result.count) throw new NotFoundException('El artículo no existe en este contexto.');
+    if (!result.count) throw new NotFoundException('El art��culo no existe en este contexto.');
     return { deleted: true };
+  }
+
+  async updateItemTags(contextId: number, itemId: number, tags: string[]) {
+    await this.requireContext(contextId);
+    const result = await this.prisma.shopItem.updateMany({
+      where: { id: itemId, contextId },
+      data: { tags: normalizeTags(tags) },
+    });
+    if (!result.count) throw new NotFoundException('El art��culo no existe en este contexto.');
+    return this.prisma.shopItem.findUniqueOrThrow({ where: { id: itemId } });
   }
 
   async addLinks(contextId: number, text: string) {

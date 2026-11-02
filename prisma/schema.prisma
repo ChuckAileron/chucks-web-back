@@ -142,6 +142,7 @@ model ShopItem {
   currency  String?
   condition String?
   store     String?
+  tags      String[]   @default([])
   active    Boolean    @default(true)
   error     String?
   checkedAt DateTime?

@@ -1,4 +1,4 @@
-import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateShopContextDto {
   @IsString()
@@ -11,6 +11,14 @@ export class AddShopLinksDto {
   @IsString()
   @MaxLength(100_000)
   text!: string;
+}
+
+export class UpdateShopItemTagsDto {
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  tags!: string[];
 }
 
 export const SHOP_SORTS = [
