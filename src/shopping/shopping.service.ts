@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { isBuyeeUrl, parseProductHtml, scrapeProduct } from '../common/price-scraper.js';
+import {
+  isAliExpressUrl,
+  isBuyeeUrl,
+  parseAliExpressApiResponse,
+  parseProductHtml,
+  scrapeProduct,
+} from '../common/price-scraper.js';
 import type { ProductResult } from '../common/price-scraper.js';
 import { BuyeeRendererService } from '../common/buyee-renderer.service.js';
 import type { SHOP_SORTS } from './dto/shopping.dto.js';
@@ -51,6 +57,29 @@ export class ShoppingService {
   ) {}
 
   private async scrapeShopProduct(url: string): Promise<ProductResult> {
+    if (isAliExpressUrl(url)) {
+      const rendered = await this.buyeeRenderer.renderAliExpressProductHtml(url);
+      if (!rendered.html.trim()) {
+        throw new Error('AliExpress no devolvió el contenido renderizado del artículo.');
+      }
+      const baseUrl = rendered.finalUrl || url;
+      const htmlResult = parseProductHtml(rendered.html, baseUrl);
+      const apiResults = rendered.apiResponses.map((response) =>
+        parseAliExpressApiResponse(response, baseUrl),
+      );
+      const apiResult =
+        apiResults.find((result) => result.price !== null) ??
+        apiResults.find((result) => result.error?.includes('rechazó')) ??
+        apiResults.at(-1);
+      if (!apiResult) return htmlResult;
+      return {
+        ...apiResult,
+        title: apiResult.title ?? htmlResult.title,
+        imageUrl: apiResult.imageUrl ?? htmlResult.imageUrl,
+        store: apiResult.store ?? htmlResult.store,
+        error: apiResult.price !== null ? null : apiResult.error ?? htmlResult.error,
+      };
+    }
     if (!isBuyeeUrl(url)) return scrapeProduct(url);
     const rendered = await this.buyeeRenderer.renderProductHtml(url);
     if (!rendered.html.trim()) throw new Error('Buyee no devolvió el contenido renderizado del artículo.');

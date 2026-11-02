@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { launch, type Browser, type Page } from 'puppeteer';
+import { launch, type Browser, type Page, type HTTPResponse } from 'puppeteer';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validatePublicUrl } from './http-page.js';
@@ -81,6 +81,63 @@ export class BuyeeRendererService implements OnModuleDestroy {
       }
       return { html, finalUrl: page.url() };
     } finally {
+      await page.close().catch(() => undefined);
+    }
+  }
+
+  async renderAliExpressProductHtml(value: string, timeoutMs = RENDER_TIMEOUT) {
+    const safeUrl = await validatePublicUrl(value);
+    const browser = await this.browser();
+    const page: Page = await browser.newPage();
+    page.setDefaultNavigationTimeout(timeoutMs);
+    await page.setUserAgent(USER_AGENT);
+    await page.setExtraHTTPHeaders({ 'accept-language': 'es-ES,es;q=0.9,en-US,en;q=0.8' });
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      void this.validateRequest(request.url())
+        .then(() => request.continue())
+        .catch(() => request.abort('blockedbyclient'));
+    });
+
+    const apiResponses: string[] = [];
+    const responseHandler = (response: HTTPResponse) => {
+      if (!response.url().includes('mtop.aliexpress.pdp.pc.query')) return;
+      const contentType = response.headers()['content-type'] || '';
+      if (!/json|text/i.test(contentType)) return;
+      void response
+        .text()
+        .then((text) => {
+          if (text && text.length > 50) apiResponses.push(text);
+        })
+        .catch(() => undefined);
+    };
+    page.on('response', responseHandler);
+
+    try {
+      const started = Date.now();
+      const deadline = started + timeoutMs;
+      try {
+        await page.goto(safeUrl.href, { waitUntil: 'domcontentloaded', timeout: Math.min(25_000, timeoutMs) });
+      } catch {
+        // El challenge puede cancelar la navegación inicial.
+      }
+      while (
+        Date.now() < deadline &&
+        !apiResponses.some((text) => /SUCCESS|FAIL_SYS_USER_VALIDATE|RGV587_ERROR/.test(text))
+      ) {
+        await delay(500);
+      }
+      let html = '';
+      for (let attempt = 0; attempt < 3 && !html; attempt += 1) {
+        try {
+          html = await page.content();
+        } catch {
+          await delay(500);
+        }
+      }
+      return { html, finalUrl: page.url(), apiResponses };
+    } finally {
+      page.off('response', responseHandler);
       await page.close().catch(() => undefined);
     }
   }

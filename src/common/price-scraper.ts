@@ -333,6 +333,35 @@ export const isBuyeeUrl = (value: string): boolean => {
   }
 };
 
+export const isAliExpressUrl = (value: string): boolean => {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return (
+      host === 'aliexpress.com' ||
+      host.endsWith('.aliexpress.com') ||
+      host === 'aliexpress.us' ||
+      host.endsWith('.aliexpress.us') ||
+      host === 'aliexpress.ru' ||
+      host.endsWith('.aliexpress.ru')
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const extractAliExpressProductId = (value: string): string | null => {
+  try {
+    const url = new URL(value);
+    const fromPath = url.pathname.match(/\/item\/(\d+)\.html/i)?.[1];
+    if (fromPath) return fromPath;
+    const fromQuery = url.searchParams.get('productId') || url.searchParams.get('itemId');
+    if (fromQuery && /^\d+$/.test(fromQuery)) return fromQuery;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 // Buyee reúne varias tiendas japonesas bajo su propio dominio; la tienda de
 // origen se deduce de la ruta de la URL. "rakuma" se revisa antes que
 // "rakuten" porque las fichas de Rakuma incluyen ambos nombres.
@@ -421,11 +450,183 @@ const extractUsdPrice = (html: string): number | null => {
 // Analiza el HTML ya descargado de una ficha de producto. Además del precio,
 // imagen y título genéricos extrae la condición y la estimación en dólares
 // que publica Buyee.
+const cleanAliExpressTitle = (value: string | null): string | null => {
+  const title = value?.replace(/\s*[-|]\s*AliExpress(?:\s+\d+)?\s*$/i, '').trim();
+  return title || null;
+};
+
+const absoluteImageUrl = (value: unknown, baseUrl: string): string | null => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim(), baseUrl);
+    if (url.protocol === '//') url.protocol = 'https:';
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+};
+
+const aliExpressJson = (value: unknown): Json | null => (isJson(value) ? value : null);
+
+const aliExpressResult = (payload: unknown): Json | null => {
+  const record = aliExpressJson(payload);
+  if (!record) return null;
+  const data = aliExpressJson(record['data']);
+  const result = data ? aliExpressJson(data['result']) : null;
+  return result ?? aliExpressJson(record['result']) ?? record;
+};
+
+const aliExpressText = (value: unknown): string | null => {
+  const text = toText(value).replace(/\s+/g, ' ').trim();
+  return text || null;
+};
+
+const aliExpressPrice = (
+  result: Json,
+): { price: number; currency: string | null } | null => {
+  const priceModule = aliExpressJson(result['PRICE']);
+  const prices = priceModule ? aliExpressJson(priceModule['skuIdStrPriceInfoMap']) : null;
+  if (prices) {
+    let best: { price: number; currency: string | null } | null = null;
+    for (const value of Object.values(prices)) {
+      const info = aliExpressJson(value);
+      if (!info) continue;
+      const raw =
+        info['salePriceString'] ??
+        info['salePrice'] ??
+        info['formatedAmount'] ??
+        info['formattedAmount'] ??
+        info['priceString'];
+      const currency =
+        currencyFromText(raw) ??
+        currencyFromText(info['currencyCode'] ?? info['currency']) ??
+        null;
+      const price = currency
+        ? priceNumberFromText(toText(raw), currency) ?? numberFromPrice(raw)
+        : numberFromPrice(raw);
+      if (price === null || price <= 0) continue;
+      if (best === null || price < best.price) {
+        best = {
+          price,
+          currency,
+        };
+      }
+    }
+    if (best) return best;
+  }
+  return findOffer(result);
+};
+
+// La ficha de AliExpress no trae precio en el HTML: lo carga desde su API MTOP
+// en una respuesta JSONP. Este parser acepta la respuesta completa o ya
+// desenvuelta y devuelve los mismos campos que el resto de scrapers.
+export const parseAliExpressApiResponse = (
+  text: string,
+  baseUrl: string,
+): ProductResult => {
+  let payload: unknown;
+  try {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{')) {
+      payload = JSON.parse(trimmed);
+    } else {
+      const start = trimmed.indexOf('(');
+      const end = trimmed.lastIndexOf(')');
+      payload = JSON.parse(start >= 0 && end > start ? trimmed.slice(start + 1, end) : trimmed);
+    }
+  } catch {
+    return {
+      price: null,
+      currency: null,
+      imageUrl: null,
+      title: null,
+      condition: null,
+      usdPrice: null,
+      store: null,
+      error: 'AliExpress devolvió una respuesta ilegible.',
+    };
+  }
+
+  const result = aliExpressResult(payload);
+  if (!result) {
+    return {
+      price: null,
+      currency: null,
+      imageUrl: null,
+      title: null,
+      condition: null,
+      usdPrice: null,
+      store: null,
+      error: 'AliExpress no devolvió los datos del producto.',
+    };
+  }
+
+  const titleModule = aliExpressJson(result['PRODUCT_TITLE']);
+  const title =
+    cleanAliExpressTitle(
+      aliExpressText(
+        titleModule?.['text'] ??
+          titleModule?.['subject'] ??
+          aliExpressJson(result['titleModule'])?.['subject'],
+      ),
+    ) ?? null;
+
+  const imageModule =
+    aliExpressJson(result['HEADER_IMAGE_PC']) ?? aliExpressJson(result['imageModule']);
+  const imagePathList = imageModule?.['imagePathList'];
+  const imageUrl =
+    absoluteImageUrl(Array.isArray(imagePathList) ? imagePathList[0] : imagePathList, baseUrl) ??
+    null;
+
+  const storeModule =
+    aliExpressJson(result['SHOP_CARD_PC']) ??
+    aliExpressJson(result['storeModule']) ??
+    aliExpressJson(result['storeInfo']);
+  const store =
+    aliExpressText(
+      storeModule?.['storeName'] ??
+        aliExpressJson(storeModule?.['sellerInfo'])?.['storeName'],
+    ) ?? null;
+
+  const price = aliExpressPrice(result);
+  const ret = isJson(payload) ? payload['ret'] : undefined;
+  const retError = Array.isArray(ret)
+    ? ret.find((entry) => typeof entry === 'string' && /ERROR|FAIL|VALIDATE/i.test(entry))
+    : null;
+
+  return {
+    price: price?.price ?? null,
+    currency: price?.currency ?? null,
+    imageUrl,
+    title,
+    condition: null,
+    usdPrice: null,
+    store: store ?? 'AliExpress',
+    error: price
+      ? null
+      : retError
+        ? 'AliExpress rechazó la solicitud del producto; vuelve a intentarlo más tarde.'
+        : 'No se encontró un precio reconocible en la página de AliExpress.',
+  };
+};
+
 export const parseProductHtml = (
   html: string,
   baseUrl: string,
 ): ProductResult => {
   const price = extractPrice(html);
+  if (isAliExpressUrl(baseUrl)) {
+    return {
+      price: price?.price ?? null,
+      currency: price?.currency ?? null,
+      imageUrl: extractProductImage(html, baseUrl),
+      title: cleanAliExpressTitle(extractProductTitle(html)),
+      condition: null,
+      usdPrice: null,
+      store: 'AliExpress',
+      error: price ? null : 'No se encontró un precio reconocible en la página de AliExpress.',
+    };
+  }
   return {
     price: price?.price ?? null,
     currency: price?.currency ?? null,
