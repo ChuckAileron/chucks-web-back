@@ -1,16 +1,48 @@
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { BuyeeRendererService } from '../common/buyee-renderer.service.js';
+import type { ProductResult } from '../common/price-scraper.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ShoppingService } from './shopping.service.js';
 
-function setup() {
+function setup(renderer: Partial<BuyeeRendererService> = {}) {
   const shopContext = { findUnique: vi.fn() };
   const shopItem = { deleteMany: vi.fn(), updateMany: vi.fn(), findUniqueOrThrow: vi.fn() };
   const prisma = { shopContext, shopItem } as unknown as PrismaService;
-  const service = new ShoppingService(prisma, {} as BuyeeRendererService);
+  const service = new ShoppingService(prisma, renderer as BuyeeRendererService);
   return { service, shopContext, shopItem };
 }
+
+describe('ShoppingService.scrapeShopProduct', () => {
+  it('uses the visible AliExpress HTML price when the product API is challenged', async () => {
+    const url = 'https://es.aliexpress.com/item/1005009801028580.html';
+    const renderer = {
+      renderAliExpressProductHtml: vi.fn().mockResolvedValue({
+        html: `<html><body>
+          <button class="ship-to--text">CLP</button>
+          <h1>Consola AYN Thor</h1>
+          <span class="price-default--current--example">$519.900</span>
+          <span class="price-default--original--example">$742.714</span>
+        </body></html>`,
+        finalUrl: url,
+        apiResponses: ['mtopjsonp1({"ret":["FAIL_SYS_USER_VALIDATE"],"data":{}})'],
+      }),
+    };
+    const { service } = setup(renderer);
+    const scrapeShopProduct = Reflect.get(service, 'scrapeShopProduct') as (
+      this: ShoppingService,
+      target: string,
+    ) => Promise<ProductResult>;
+
+    await expect(scrapeShopProduct.call(service, url)).resolves.toMatchObject({
+      price: 519900,
+      currency: 'CLP',
+      title: 'Consola AYN Thor',
+      store: 'AliExpress',
+      error: null,
+    });
+  });
+});
 
 describe('ShoppingService.deleteItem', () => {
   it('deletes only an item belonging to the selected context', async () => {

@@ -72,12 +72,17 @@ export class ShoppingService {
         apiResults.find((result) => result.error?.includes('rechazó')) ??
         apiResults.at(-1);
       if (!apiResult) return htmlResult;
+      const price = apiResult.price ?? htmlResult.price;
       return {
         ...apiResult,
+        price,
+        currency: apiResult.currency ?? htmlResult.currency,
+        usdPrice: apiResult.usdPrice ?? htmlResult.usdPrice,
         title: apiResult.title ?? htmlResult.title,
         imageUrl: apiResult.imageUrl ?? htmlResult.imageUrl,
+        condition: apiResult.condition ?? htmlResult.condition,
         store: apiResult.store ?? htmlResult.store,
-        error: apiResult.price !== null ? null : apiResult.error ?? htmlResult.error,
+        error: price !== null ? null : apiResult.error ?? htmlResult.error,
       };
     }
     if (!isBuyeeUrl(url)) return scrapeProduct(url);
